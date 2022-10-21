@@ -1,0 +1,144 @@
+from snakemake.remote.GS import RemoteProvider
+
+GS = RemoteProvider(stay_on_remote=True)
+
+splicesm_quartiles_groups = GS.remote(config["gcp_rootdir"] + "SpliceSM_quartiles.tsv")
+
+# List of variants annotated with SpliceSM scores from different
+# models. Columns have to be "chr", "start", "ref", "alt" plus the
+# scores.
+splicesm_scores = GS.remote(config["gcp_rootdir"] + "prediction_scores_v1.txt")
+
+# TODO: the original file prediction_scores_v1.txt had a problem with the first row/header and "chrN" instead of "N" -- add a rule with preprocessing
+
+rule all:
+    input:
+        splicesm_quartiles_groups,
+
+
+rule annotate_exome_variants_w_splicesm:
+    input:
+        splicesm_scores,
+    output:
+        splicesm_quartiles_groups,
+    run:
+        import hail as hl
+        from misc import annotate_quartiles
+        from misc import get_an_adj_criteria
+        from misc import prepare_ht
+
+        # Import SpliceSM scores
+        splicesm = (
+            hl.import_table(
+                input[0],
+                delimiter="\t",
+                missing="",
+                # TODO: this is ad-hoc, make this work for a more
+                # general case of [1,N] scores
+                types={
+                    "spliceAI_max": hl.tfloat64,
+                    "spliceAI_xgb": hl.tfloat64,
+                    "spliceSM": hl.tfloat64,
+                    "start": hl.tint32,
+                },
+            )
+            # TODO: this is ad-hoc, make this work for a more general
+            # case of [1,N] scores
+            .select(
+                "chr", "start", "ref", "alt", "spliceAI_max", "spliceAI_xgb", "spliceSM"
+            ).key_by("chr", "start", "ref", "alt")
+        )
+
+        # Load all exonic variants from gnomAD v2 and perform QC
+        exomes = hl.read_table(config["exomes_ht_path"])
+        exomes = exomes.filter(
+            # Filter the table so that only those variants that have
+            # AF>0 and filter PASS are retained. The first condition
+            # is necessary because in gnomAD variants that were
+            # excluded from the analysis through QC have AF=0.
+            (exomes.freq[0].AF > 0)
+            & (exomes.filters.length() == 0)
+            # SpliceSM can be calculated for SNVs as well as indels,
+            # but MAPS only works on SNVs
+            & (exomes.vep.variant_class == "SNV")
+        )
+        # Allele number (AN) adjustment
+        # TODO: make this a CONST variable
+        exomes = exomes.filter(
+            get_an_adj_criteria(exomes, {"female": 57787, "male": 67961})
+        )
+
+        # Annotate the variants with SpliceSM scores
+        # TODO: this is ad-hoc, make this work for a more general case
+        # of [1,N] scores
+        exomes = exomes.annotate(
+            spliceAI_max=splicesm[
+                hl.struct(
+                    chr=exomes.locus.contig,
+                    start=exomes.locus.position,
+                    ref=exomes.alleles[0],
+                    alt=exomes.alleles[1],
+                )
+            ].spliceAI_max,
+            spliceAI_xgb=splicesm[
+                hl.struct(
+                    chr=exomes.locus.contig,
+                    start=exomes.locus.position,
+                    ref=exomes.alleles[0],
+                    alt=exomes.alleles[1],
+                )
+            ].spliceAI_xgb,
+            spliceSM=splicesm[
+                hl.struct(
+                    chr=exomes.locus.contig,
+                    start=exomes.locus.position,
+                    ref=exomes.alleles[0],
+                    alt=exomes.alleles[1],
+                )
+            ].spliceSM,
+        )
+        exomes = annotate_quartiles(exomes, "spliceAI_max").rename(
+            {"quartile": "spliceAI_max_quartile"}
+        )
+        exomes = annotate_quartiles(exomes, "spliceAI_xgb").rename(
+            {"quartile": "spliceAI_xgb_quartile"}
+        )
+        exomes = annotate_quartiles(exomes, "spliceSM").rename(
+            {"quartile": "spliceSM_quartile"}
+        )
+
+        # Methylation, mutability and other context data
+        context = hl.read_table(config["context_ht_path"])
+        context = context[exomes.key]
+        exomes = prepare_ht(
+            exomes.annotate(context=context.context, methylation=context.methylation),
+            trimer=True,
+            annotate_coverage=False,
+        )
+        mutation_rates = hl.read_table(config["mutation_ht_path"])
+        exomes = exomes.annotate(
+            mu=mutation_rates[
+                hl.struct(
+                    context=exomes.context,
+                    ref=exomes.ref,
+                    alt=exomes.alt,
+                    methylation_level=exomes.methylation_level,
+                )
+            ].mu_snp
+        )
+
+        exomes.group_by(
+            "context",
+            "ref",
+            "alt",
+            "methylation_level",
+            "mu",
+            "spliceSM_quartile",
+            "spliceAI_xgb_quartile",
+            "spliceAI_max_quartile",
+        ).aggregate(
+            variant_count=hl.agg.count(),
+            singleton_count=hl.agg.count_where(exomes.freq[0].AC == 1),
+        ).export(
+            output[0]
+        )
