@@ -6,6 +6,7 @@ See https://github.com/macarthur-lab/gnomad_lof.
 import hail as hl
 from typing import Union
 
+
 def trimer_from_heptamer(
     t: Union[hl.MatrixTable, hl.Table]
 ) -> Union[hl.MatrixTable, hl.Table]:
@@ -170,22 +171,86 @@ def get_an_adj_criteria(
         .or_missing()
     )
 
-def annotate_quartiles(ht, variable):
-    quartiles = ht.aggregate(
-        hl.agg.approx_quantiles(ht[variable], [0, 0.25, 0.5, 0.75, 1])
+
+def preprocessing(
+    exomes_ht,
+    context_ht,
+    mutation_rates_ht,
+    sex_split,
+):
+    """Preprocessing steps (QC and annotations).
+
+    exomes_ht -- WES variants (Hail table)
+    context_ht -- context (Hail table)
+    mutation_rates_ht -- mutability/mutation rates (Hail table)
+    sex_split -- how many males, how many females
+    """
+
+    exomes = hl.read_table(exomes_ht)
+
+    # Allele number (AN) adjustment. This retains only those variants,
+    # in which the call was made in at least 80% (see "an_cutoff") of
+    # potential carriers.
+    exomes = exomes.filter(get_an_adj_criteria(exomes, sex_split))
+
+    # Filter the table so that only those variants that have AF>0 and
+    # filter PASS are retained. The first condition is necessary
+    # because in gnomAD variants that were excluded from the analysis
+    # through QC have AF=0.
+    exomes = exomes.filter(
+        (exomes.freq[0].AF > 0)
+        & (exomes.filters.length() == 0)
+        & (exomes.vep.variant_class == "SNV")
     )
+
+    # Methylation and other context data.
+    context = hl.read_table(context_ht)
+    context = context[exomes.key]
+    # The 2020 version of MAPS uses methylation.
+    # Function "prepare_ht" annotates the input table with methylation level,
+    # coverage (optional), CpG/Non-CpG info, context for mutability
+    # (ref allele in the middle plus two bases to the left and to the right)
+    # and other information.
+    exomes = prepare_ht(
+        exomes.annotate(context=context.context, methylation=context.methylation),
+        trimer=True,
+        annotate_coverage=False,
+    )
+    mutation_rates = hl.read_table(mutation_rates_ht)
+    exomes = exomes.annotate(
+        mu=mutation_rates[
+            hl.struct(
+                context=exomes.context,
+                ref=exomes.ref,
+                alt=exomes.alt,
+                methylation_level=exomes.methylation_level,
+            )
+        ].mu_snp
+    )
+
+    return exomes
+
+
+def annotate_bins(ht, variable, bins):
+    """Group into bins by variable.
+
+    ht -- variants (Hail table)
+    variable -- variable of interest
+    bins -- array of values to be used as thresholds
+    """
+
     ht = ht.annotate(
-        quartile=hl.case()
-        .when(ht[variable] <= quartiles[1], 1)
-        .when(
-            (ht[variable] > quartiles[1]) & (ht[variable] <= quartiles[2]),
-            2,
-        )
-        .when(
-            (ht[variable] > quartiles[2]) & (ht[variable] <= quartiles[3]),
-            3,
-        )
-        .when(ht[variable] > quartiles[3], 4)
+        variable_bin=hl.case()
+        .when(ht[variable] >= bins[9], 9)
+        .when(ht[variable] >= bins[8], 8)
+        .when(ht[variable] >= bins[7], 7)
+        .when(ht[variable] >= bins[6], 6)
+        .when(ht[variable] >= bins[5], 5)
+        .when(ht[variable] >= bins[4], 4)
+        .when(ht[variable] >= bins[3], 3)
+        .when(ht[variable] >= bins[2], 2)
+        .when(ht[variable] >= bins[1], 1)
+        .when(ht[variable] >= bins[0], 0)
         .or_missing()
     )
     return ht

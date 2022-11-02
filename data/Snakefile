@@ -2,7 +2,7 @@ from snakemake.remote.GS import RemoteProvider
 
 GS = RemoteProvider(stay_on_remote=True)
 
-splicesm_quartiles_groups = GS.remote(config["gcp_rootdir"] + "SpliceSM_quartiles.tsv")
+variants_by_splicesm_bins = GS.remote(config["gcp_rootdir"] + "SpliceSM_bins.tsv")
 
 # List of variants annotated with SpliceSM scores from different
 # models. Columns have to be "chr", "start", "ref", "alt" plus the
@@ -11,21 +11,26 @@ splicesm_scores = GS.remote(config["gcp_rootdir"] + "prediction_scores_v1.txt")
 
 # TODO: the original file prediction_scores_v1.txt had a problem with the first row/header and "chrN" instead of "N" -- add a rule with preprocessing
 
+
 rule all:
     input:
-        splicesm_quartiles_groups,
+        variants_by_splicesm_bins,
 
 
 rule annotate_exome_variants_w_splicesm:
     input:
         splicesm_scores,
     output:
-        splicesm_quartiles_groups,
+        variants_by_splicesm_bins,
+    params:
+        # TODO: consider automating this by extracting values with AWK and calculating the quantiles with R
+        # 100%, 50%, 75%, 87.5%, 93.8%, 96.9%, 98.4%, 99.2%, 99.6%, 99.8%
+        spliceAI_max_bins=[0.00, 0.00, 0.01, 0.05, 0.13, 0.30, 0.72, 0.97, 0.99, 1.00],
+        spliceAI_xgb_bins=[0.08, 0.08, 0.21, 0.41, 0.59, 0.87, 0.96, 0.98, 0.99, 0.99],
+        spliceSM_bins=[0.00, 0.14, 0.75, 0.96, 0.99, 1.00, 1.00, 1.00, 1.00, 1.00],
     run:
         import hail as hl
-        from misc import annotate_quartiles
-        from misc import get_an_adj_criteria
-        from misc import prepare_ht
+        from misc import preprocessing, annotate_bins
 
         # Import SpliceSM scores
         splicesm = (
@@ -46,85 +51,43 @@ rule annotate_exome_variants_w_splicesm:
             # case of [1,N] scores
             .select(
                 "chr", "start", "ref", "alt", "spliceAI_max", "spliceAI_xgb", "spliceSM"
-            ).key_by("chr", "start", "ref", "alt")
+            )
         )
 
-        # Load all exonic variants from gnomAD v2 and perform QC
-        exomes = hl.read_table(config["exomes_ht_path"])
-        exomes = exomes.filter(
-            # Filter the table so that only those variants that have
-            # AF>0 and filter PASS are retained. The first condition
-            # is necessary because in gnomAD variants that were
-            # excluded from the analysis through QC have AF=0.
-            (exomes.freq[0].AF > 0)
-            & (exomes.filters.length() == 0)
-            # SpliceSM can be calculated for SNVs as well as indels,
-            # but MAPS only works on SNVs
-            & (exomes.vep.variant_class == "SNV")
+        # Index the variants for which SpliceSM scores are available
+        # to match the keys of Hail tables
+        splicesm = splicesm.key_by(
+            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh37"),
+            alleles=[splicesm.ref, splicesm.alt],
         )
-        # Allele number (AN) adjustment
-        # TODO: make this a CONST variable
-        exomes = exomes.filter(
-            get_an_adj_criteria(exomes, {"female": 57787, "male": 67961})
+
+        # Load all variants from gnomAD exomes and perform QC and annotations
+        # TODO: note that no filtering based on "most_severe_consequence" is done here!
+        exomes = preprocessing(
+            config["exomes_ht_path"],
+            config["context_ht_path"],
+            config["mutation_rates_ht_path"],
+            {"female": config["female"], "male": config["male"]},
         )
 
         # Annotate the variants with SpliceSM scores
         # TODO: this is ad-hoc, make this work for a more general case
         # of [1,N] scores
+        splicesm = splicesm[exomes.key]
         exomes = exomes.annotate(
-            spliceAI_max=splicesm[
-                hl.struct(
-                    chr=exomes.locus.contig,
-                    start=exomes.locus.position,
-                    ref=exomes.alleles[0],
-                    alt=exomes.alleles[1],
-                )
-            ].spliceAI_max,
-            spliceAI_xgb=splicesm[
-                hl.struct(
-                    chr=exomes.locus.contig,
-                    start=exomes.locus.position,
-                    ref=exomes.alleles[0],
-                    alt=exomes.alleles[1],
-                )
-            ].spliceAI_xgb,
-            spliceSM=splicesm[
-                hl.struct(
-                    chr=exomes.locus.contig,
-                    start=exomes.locus.position,
-                    ref=exomes.alleles[0],
-                    alt=exomes.alleles[1],
-                )
-            ].spliceSM,
-        )
-        exomes = annotate_quartiles(exomes, "spliceAI_max").rename(
-            {"quartile": "spliceAI_max_quartile"}
-        )
-        exomes = annotate_quartiles(exomes, "spliceAI_xgb").rename(
-            {"quartile": "spliceAI_xgb_quartile"}
-        )
-        exomes = annotate_quartiles(exomes, "spliceSM").rename(
-            {"quartile": "spliceSM_quartile"}
+            spliceAI_xgb=splicesm.spliceAI_xgb,
+            spliceAI_max=splicesm.spliceAI_max,
+            spliceSM=splicesm.spliceSM,
         )
 
-        # Methylation, mutability and other context data
-        context = hl.read_table(config["context_ht_path"])
-        context = context[exomes.key]
-        exomes = prepare_ht(
-            exomes.annotate(context=context.context, methylation=context.methylation),
-            trimer=True,
-            annotate_coverage=False,
+        exomes = annotate_bins(exomes, "spliceAI_max", params[0]).rename(
+            {"variable_bin": "spliceAI_max_bin"}
         )
-        mutation_rates = hl.read_table(config["mutation_ht_path"])
-        exomes = exomes.annotate(
-            mu=mutation_rates[
-                hl.struct(
-                    context=exomes.context,
-                    ref=exomes.ref,
-                    alt=exomes.alt,
-                    methylation_level=exomes.methylation_level,
-                )
-            ].mu_snp
+        exomes = annotate_bins(exomes, "spliceAI_xgb", params[1]).rename(
+            {"variable_bin": "spliceAI_xgb_bin"}
+        )
+        exomes = annotate_bins(exomes, "spliceSM", params[2]).rename(
+            {"variable_bin": "spliceSM_bin"}
         )
 
         exomes.group_by(
@@ -133,9 +96,9 @@ rule annotate_exome_variants_w_splicesm:
             "alt",
             "methylation_level",
             "mu",
-            "spliceSM_quartile",
-            "spliceAI_xgb_quartile",
-            "spliceAI_max_quartile",
+            "spliceAI_max_bin",
+            "spliceAI_xgb_bin",
+            "spliceSM_bin",
         ).aggregate(
             variant_count=hl.agg.count(),
             singleton_count=hl.agg.count_where(exomes.freq[0].AC == 1),
