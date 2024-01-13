@@ -3,8 +3,10 @@ Functions for filtering and annotation of gnomAD variants.
 See https://github.com/macarthur-lab/gnomad_lof.
 """
 
+
 import hail as hl
 from typing import Union
+from constants import CSQ_ORDER
 
 
 def trimer_from_heptamer(
@@ -172,85 +174,67 @@ def get_an_adj_criteria(
     )
 
 
-def preprocessing(
-    exomes_ht,
-    context_ht,
-    mutation_rates_ht,
-    sex_split,
-):
-    """Preprocessing steps (QC and annotations).
-
-    exomes_ht -- WES variants (Hail table)
-    context_ht -- context (Hail table)
-    mutation_rates_ht -- mutability/mutation rates (Hail table)
-    sex_split -- how many males, how many females
-    """
-
-    exomes = hl.read_table(exomes_ht)
-
-    # Allele number (AN) adjustment. This retains only those variants,
-    # in which the call was made in at least 80% (see "an_cutoff") of
-    # potential carriers.
-    exomes = exomes.filter(get_an_adj_criteria(exomes, sex_split))
-
-    # Filter the table so that only those variants that have AF>0 and
-    # filter PASS are retained. The first condition is necessary
-    # because in gnomAD variants that were excluded from the analysis
-    # through QC have AF=0.
-    exomes = exomes.filter(
-        (exomes.freq[0].AF > 0)
-        & (exomes.filters.length() == 0)
-        & (exomes.vep.variant_class == "SNV")
+def filter_vep_to_canonical_transcripts(
+    mt: Union[hl.MatrixTable, hl.Table], vep_root: str = "vep"
+) -> Union[hl.MatrixTable, hl.Table]:
+    canonical = mt[vep_root].transcript_consequences.filter(
+        lambda csq: csq.canonical == 1
+    )
+    vep_data = mt[vep_root].annotate(transcript_consequences=canonical)
+    return (
+        mt.annotate_rows(**{vep_root: vep_data})
+        if isinstance(mt, hl.MatrixTable)
+        else mt.annotate(**{vep_root: vep_data})
     )
 
-    # Methylation and other context data.
-    context = hl.read_table(context_ht)
-    context = context[exomes.key]
-    # The 2020 version of MAPS uses methylation.
-    # Function "prepare_ht" annotates the input table with methylation level,
-    # coverage (optional), CpG/Non-CpG info, context for mutability
-    # (ref allele in the middle plus two bases to the left and to the right)
-    # and other information.
-    exomes = prepare_ht(
-        exomes.annotate(context=context.context, methylation=context.methylation),
-        trimer=True,
-        annotate_coverage=False,
-    )
-    mutation_rates = hl.read_table(mutation_rates_ht)
-    exomes = exomes.annotate(
-        mu=mutation_rates[
-            hl.struct(
-                context=exomes.context,
-                ref=exomes.ref,
-                alt=exomes.alt,
-                methylation_level=exomes.methylation_level,
+
+def get_worst_consequence_with_non_coding(ht):
+    def get_worst_csq(
+        csq_list: hl.expr.ArrayExpression, protein_coding: bool
+    ) -> hl.struct:
+        lof = hl.null(hl.tstr)
+        no_lof_flags = hl.null(hl.tbool)
+        # lof_filters = hl.null(hl.tstr)
+        # lof_flags = hl.null(hl.tstr)
+        if protein_coding:
+            all_lofs = csq_list.map(lambda x: x.lof)
+            lof = hl.literal(["HC", "OS", "LC"]).find(lambda x: all_lofs.contains(x))
+            csq_list = hl.cond(
+                hl.is_defined(lof), csq_list.filter(lambda x: x.lof == lof), csq_list
             )
-        ].mu_snp
+            no_lof_flags = hl.or_missing(
+                hl.is_defined(lof),
+                csq_list.any(lambda x: (x.lof == lof) & hl.is_missing(x.lof_flags)),
+            )
+            # lof_filters = hl.delimit(hl.set(csq_list.map(lambda x: x.lof_filter).filter(lambda x: hl.is_defined(x))), '|')
+            # lof_flags = hl.delimit(hl.set(csq_list.map(lambda x: x.lof_flags).filter(lambda x: hl.is_defined(x))), '|')
+        all_csq_terms = csq_list.flatmap(lambda x: x.consequence_terms)
+        worst_csq = hl.literal(CSQ_ORDER).find(lambda x: all_csq_terms.contains(x))
+        return hl.struct(
+            worst_csq=worst_csq,
+            protein_coding=protein_coding,
+            lof=lof,
+            no_lof_flags=no_lof_flags,
+            # lof_filters=lof_filters, lof_flags=lof_flags
+        )
+
+    protein_coding = ht.vep.transcript_consequences.filter(
+        lambda x: x.biotype == "protein_coding"
     )
-
-    return exomes
-
-
-def annotate_bins(ht, variable, bins):
-    """Group into bins by variable.
-
-    ht -- variants (Hail table)
-    variable -- variable of interest
-    bins -- array of values to be used as thresholds
-    """
-
-    ht = ht.annotate(
-        variable_bin=hl.case()
-        .when(ht[variable] >= bins[9], 9)
-        .when(ht[variable] >= bins[8], 8)
-        .when(ht[variable] >= bins[7], 7)
-        .when(ht[variable] >= bins[6], 6)
-        .when(ht[variable] >= bins[5], 5)
-        .when(ht[variable] >= bins[4], 4)
-        .when(ht[variable] >= bins[3], 3)
-        .when(ht[variable] >= bins[2], 2)
-        .when(ht[variable] >= bins[1], 1)
-        .when(ht[variable] >= bins[0], 0)
-        .or_missing()
+    return ht.annotate(
+        **hl.case(missing_false=True)
+        .when(hl.len(protein_coding) > 0, get_worst_csq(protein_coding, True))
+        .when(
+            hl.len(ht.vep.transcript_consequences) > 0,
+            get_worst_csq(ht.vep.transcript_consequences, False),
+        )
+        .when(
+            hl.len(ht.vep.regulatory_feature_consequences) > 0,
+            get_worst_csq(ht.vep.regulatory_feature_consequences, False),
+        )
+        .when(
+            hl.len(ht.vep.motif_feature_consequences) > 0,
+            get_worst_csq(ht.vep.motif_feature_consequences, False),
+        )
+        .default(get_worst_csq(ht.vep.intergenic_consequences, False))
     )
-    return ht
