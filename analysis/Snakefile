@@ -1,11 +1,39 @@
-from snakemake.remote.GS import RemoteProvider
-
-GS = RemoteProvider()
-
 calculate_maps = "calculate_maps.R"
 join_groups = "join_groups.R"
 plot_multimodel_maps = "plot_multimodel_maps.R"
 viz_scores = "viz_scores.R"
+
+if config["gcp"] == False:
+    # SpliceAI scores
+    vars_by_spliceai_bins_genomes = "../files/genomes_spliceai_bins.tsv"
+    # mmSplice scores
+    mmSplice_scores = "../files/mmsplice_bins.tsv"
+    # Aggregate scores
+    aggregate_scores = "../files/spliceai_aggregate_bins.tsv"
+    # Variants of interest annotated with splicing scores (one or many)
+    splicing_groups = "../files/SpliceSM_bins.tsv"
+    # Mutability table
+    mutation_ht = "../files/mutation_ht.tsv"
+    # Synonymous variants for calibration of MAPS
+    synonymous_by_mu = "../files/syn_vars_coding_by_mu.tsv"
+else:
+    from snakemake.remote.GS import RemoteProvider
+
+    GS = RemoteProvider()
+    # SpliceAI scores
+    vars_by_spliceai_bins_genomes = GS.remote(
+        config["gcp_rootdir"] + "genomes_spliceai_bins.tsv"
+    )
+    # mmSplice scores
+    mmSplice_scores = GS.remote(config["gcp_rootdir"] + "mmsplice_bins.tsv")
+    # Aggregate scores
+    aggregate_scores = GS.remote(config["gcp_rootdir"] + "spliceai_aggregate_bins.tsv")
+    # Variants of interest annotated with splicing scores (one or many)
+    splicing_groups = GS.remote(config["gcp_rootdir"] + "SpliceSM_bins.tsv")
+    # Mutability table
+    mutation_ht = GS.remote(config["gcp_rootdir"] + "mutation_ht.tsv")
+    # Synonymous variants for calibration of MAPS
+    synonymous_by_mu = GS.remote(config["gcp_rootdir"] + "syn_vars_coding_by_mu.tsv")
 
 # TODO: encode 'extra = "..._bin"' with "fmt"
 # TODO: make label recoding more robust (extra_old and extra_new depends on quantiles)
@@ -13,11 +41,6 @@ viz_scores = "viz_scores.R"
 ###############################################################################
 #                                   Genomes                                   #
 ###############################################################################
-
-# SpliceAI scores
-vars_by_spliceai_bins_genomes = GS.remote(
-    config["gcp_rootdir"] + "genomes_spliceai_bins.tsv"
-)
 
 # Output files ################################################################
 
@@ -27,14 +50,6 @@ maps_genomes_spliceai_tops_plot = "maps_genomes_spliceai_tops.pdf"
 #                                    Exomes                                   #
 ###############################################################################
 
-# mmSplice scores
-mmSplice_scores = GS.remote(config["gcp_rootdir"] + "mmsplice_bins.tsv")
-
-# Aggregate scores
-aggregate_scores = GS.remote(config["gcp_rootdir"] + "spliceai_aggregate_bins.tsv")
-
-# Variants of interest annotated with splicing scores (one or many)
-splicing_groups = GS.remote(config["gcp_rootdir"] + "SpliceSM_bins.tsv")
 fmt = "bin"
 
 # "Top N%" groups for each score
@@ -43,12 +58,6 @@ spliceai_max_joined_groups = "spliceai_max_joined_groups.tsv"
 spliceai_xgb_joined_groups = "spliceai_xgb_joined_groups.tsv"
 spliceai_aggregate_joined_groups = "spliceai_aggregate_joined_groups.tsv"
 mmSplice_joined_groups = "mmSplice_joined_groups.tsv"
-
-# Mutability table
-mutation_ht = GS.remote(config["gcp_rootdir"] + "mutation_ht.tsv")
-
-# Synonymous variants for calibration of MAPS
-synonymous_by_mu = GS.remote(config["gcp_rootdir"] + "syn_vars_coding_by_mu.tsv")
 
 # Output files ################################################################
 maps_mmSplice_df = "maps_mmSplice.tsv"
@@ -64,25 +73,25 @@ maps_all_models_plot = "maps_all_models.pdf"
 rule all:
     input:
         # maps_genomes_spliceai_tops_plot,
-        maps_all_models_plot,
-        "maps_mmSplice_tops_by_mmSplice_bin.pdf",
-        # "maps_mmSplice_by_mmSplice_" + fmt + ".pdf",
-        "maps_mmSplice_tops_by_mmSplice_" + fmt + ".pdf",
-        maps_splicesm_df,
-        maps_spliceai_xgb_df,
-        maps_spliceai_max_df,
         # "maps_splicesm_by_spliceSM_" + fmt + ".pdf",
         # "maps_spliceAI_max_by_spliceAI_max_" + fmt + ".pdf",
         # "maps_spliceAI_xgb_by_spliceAI_xgb_" + fmt + ".pdf",
         # "traps_splicesm_by_spliceSM_" + fmt + ".pdf",
         # "traps_spliceAI_max_by_spliceAI_max_" + fmt + ".pdf",
         # "traps_spliceAI_xgb_by_spliceAI_xgb_" + fmt + ".pdf",
+        # "maps_mmSplice_by_mmSplice_" + fmt + ".pdf",
+        maps_all_models_plot,
+        maps_splicesm_df,
+        maps_spliceai_xgb_df,
+        maps_spliceai_max_df,
+        "maps_mmSplice_tops_by_mmSplice_" + fmt + ".pdf",
         "maps_splicesm_tops_by_spliceSM_" + fmt + ".pdf",
         "maps_spliceAI_max_tops_by_spliceAI_max_" + fmt + ".pdf",
         "maps_spliceAI_xgb_tops_by_spliceAI_xgb_" + fmt + ".pdf",
-        # "traps_splicesm_tops_by_spliceSM_" + fmt + ".pdf",
+        "traps_splicesm_tops_by_spliceSM_" + fmt + ".pdf",
         "traps_spliceAI_max_tops_by_spliceAI_max_" + fmt + ".pdf",
         "traps_spliceAI_xgb_tops_by_spliceAI_xgb_" + fmt + ".pdf",
+
 
 ###############################################################################
 #                                    Exomes                                   #
