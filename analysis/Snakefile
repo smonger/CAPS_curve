@@ -1,7 +1,20 @@
-calculate_maps = "calculate_maps.R"
+import random
+import colorsys
+import itertools
+
+# TODO: add a processing rule for "variants_w_splicesm_spliceai"?
+
+combine_tables = "combine_tables.R"
 join_groups = "join_groups.R"
-plot_multimodel_maps = "plot_multimodel_maps.R"
-viz_scores = "viz_scores.R"
+values_to_quantile_bins = "values_to_quantile_bins.R"
+calculate_caps = "calculate_caps.R"
+calculate_maps = "calculate_maps.R"
+viz_scores = "viz_scores2.R"
+
+# CAPS files ##################################################################
+# Synonymous variants with 4 missing contexts added
+syn_by_context_p4 = "../../CAPS/model/phat.tsv"
+###############################################################################
 
 if config["gcp"] == False:
     # SpliceAI scores
@@ -16,6 +29,8 @@ if config["gcp"] == False:
     mutation_ht = "../files/mutation_ht.tsv"
     # Synonymous variants for calibration of MAPS
     synonymous_by_mu = "../files/syn_vars_coding_by_mu.tsv"
+    # All variants annotated with different versions of SpliceSM and SpliceAI scores
+    variants_w_splicesm_spliceai = "../files/variants_w_splicesm_spliceai.tsv"
 else:
     from snakemake.remote.GS import RemoteProvider
 
@@ -35,22 +50,47 @@ else:
     # Synonymous variants for calibration of MAPS
     synonymous_by_mu = GS.remote(config["gcp_rootdir"] + "syn_vars_coding_by_mu.tsv")
 
-# TODO: encode 'extra = "..._bin"' with "fmt"
-# TODO: make label recoding more robust (extra_old and extra_new depends on quantiles)
+# Parameters ##################################################################
 
-###############################################################################
-#                                   Genomes                                   #
-###############################################################################
+scores_for_viz = [
+    "sai_max",
+    "sai_sum",
+    "sai_xgb",
+    "ssm_base",
+    "ssm_sad",
+    "ssm_sus",
+    "ssm_anr",
+]
+
+n = len(scores_for_viz)
+HSV_tuples = [(x * 1.0 / n, 0.5, 0.5) for x in range(n)]
+RGB_tuples = list(
+    map(lambda x: tuple(int(i * 255) for i in colorsys.hsv_to_rgb(*x)), HSV_tuples)
+)
+scores_for_viz_colors = ["#%02x%02x%02x" % rgb for rgb in RGB_tuples]
+
+exponential_quantiles = [
+    0.0000,
+    0.5000,
+    0.7500,
+    0.8750,
+    0.9375,
+    0.9688,
+    0.9844,
+    0.9922,
+]
+exponential_bins = [1, 2, 3, 4, 5, 6, 7, 8]
+exponential_quantiles_labels = ["100%", "50%", "25%", "12.5%", "6.25%", "3.125%", "1.5625%", "0.78125%"]
 
 # Output files ################################################################
 
 maps_genomes_spliceai_tops_plot = "maps_genomes_spliceai_tops.pdf"
 
-###############################################################################
-#                                    Exomes                                   #
-###############################################################################
+variants_w_splicesm_spliceai_exp_tops_scores = (
+    "variants_w_splicesm_spliceai_exp_tops_scores.tsv"
+)
 
-fmt = "bin"
+variants_w_splicesm_spliceai_exp_bins = "variants_w_splicesm_spliceai_exp_bins.tsv"
 
 # "Top N%" groups for each score
 splicesm_joined_groups = "splicesm_joined_groups.tsv"
@@ -65,441 +105,107 @@ maps_splicesm_df = "maps_splicesm.tsv"
 maps_spliceai_xgb_df = "maps_spliceai_xgb.tsv"
 maps_spliceai_max_df = "maps_spliceai_max.tsv"
 maps_spliceai_aggregate_df = "maps_spliceai_aggregate.tsv"
-maps_all_models_plot = "maps_all_models.pdf"
+all_models_plot = "all_models.pdf"
 
 ###############################################################################
 
 
 rule all:
     input:
-        # maps_genomes_spliceai_tops_plot,
-        # "maps_splicesm_by_spliceSM_" + fmt + ".pdf",
-        # "maps_spliceAI_max_by_spliceAI_max_" + fmt + ".pdf",
-        # "maps_spliceAI_xgb_by_spliceAI_xgb_" + fmt + ".pdf",
-        # "traps_splicesm_by_spliceSM_" + fmt + ".pdf",
-        # "traps_spliceAI_max_by_spliceAI_max_" + fmt + ".pdf",
-        # "traps_spliceAI_xgb_by_spliceAI_xgb_" + fmt + ".pdf",
-        # "maps_mmSplice_by_mmSplice_" + fmt + ".pdf",
-        maps_all_models_plot,
-        maps_splicesm_df,
-        maps_spliceai_xgb_df,
-        maps_spliceai_max_df,
-        "maps_mmSplice_tops_by_mmSplice_" + fmt + ".pdf",
-        "maps_splicesm_tops_by_spliceSM_" + fmt + ".pdf",
-        "maps_spliceAI_max_tops_by_spliceAI_max_" + fmt + ".pdf",
-        "maps_spliceAI_xgb_tops_by_spliceAI_xgb_" + fmt + ".pdf",
-        "traps_splicesm_tops_by_spliceSM_" + fmt + ".pdf",
-        "traps_spliceAI_max_tops_by_spliceAI_max_" + fmt + ".pdf",
-        "traps_spliceAI_xgb_tops_by_spliceAI_xgb_" + fmt + ".pdf",
+        all_models_plot,
 
 
 ###############################################################################
-#                                    Exomes                                   #
-###############################################################################
+
+for score in scores_for_viz:
+
+    rule quantiles_to_top_groups:
+        name:
+            "quantiles_to_top_groups_{score}"
+        input:
+            groups=variants_w_splicesm_spliceai_exp_bins,
+        output:
+            joined_groups="variants_w_splicesm_spliceai_exp_tops_{score}.tsv",
+        params:
+            variable="{score}",
+        script:
+            join_groups
+
+    rule scores_for_top_groups:
+        name:
+            "top_groups_{score}"
+        input:
+            variants="variants_w_splicesm_spliceai_exp_tops_{score}.tsv",
+            exp_variants=syn_by_context_p4,
+        output:
+            scores="top_groups_{score}.tsv",
+        params:
+            phat_method="Var",
+            confint_method="CAPS",
+            variable="{score}",
+        script:
+            calculate_caps
 
 
-rule mmSplice_df:
+rule combine_scores_for_exponential_bins:
     input:
-        variants=mmSplice_joined_groups,
-        calibrate_on=synonymous_by_mu,
-    params:
-        extra="mmSplice_bin",
-        transformation="+",
+        In=expand(
+            "top_groups_{score}.tsv",
+            score=scores_for_viz,
+        ),
     output:
-        scores=maps_mmSplice_df,
+        Out=variants_w_splicesm_spliceai_exp_tops_scores,
     script:
-        calculate_maps
+        combine_tables
 
 
-rule spliceAI_max_df:
+rule score_values_to_exponential_bins:
     input:
-        variants=spliceai_max_joined_groups,
-        calibrate_on=synonymous_by_mu,
-    params:
-        extra="spliceAI_max_bin",
-        transformation="+",
+        In=variants_w_splicesm_spliceai,
     output:
-        scores=maps_spliceai_max_df,
+        Out=variants_w_splicesm_spliceai_exp_bins,
+    params:
+        # TODO: remove, the below is only for "values_to_quantile_bins.R"
+        # quantiles=exponential_quantiles,
+        # NA_omit=True,
+        # When "True", assume that the input file contains variants
+        # rather than aggregated groups, has "context" and "alleles"
+        # columns and doesn't have the counts columns
+        variants_input=True,
+        scores_to_include=scores_for_viz,
+        max_group = 12
     script:
-        calculate_maps
+        # TODO: reference by variable name
+        "values_to_quantile_bins2.R"
 
 
-rule spliceAI_xgb_df:
+rule visualise_scores_exponential_bins_all_models:
     input:
-        variants=spliceai_xgb_joined_groups,
-        calibrate_on=synonymous_by_mu,
-    params:
-        extra="spliceAI_xgb_bin",
-        transformation="+",
+        scores=variants_w_splicesm_spliceai_exp_tops_scores,
     output:
-        scores=maps_spliceai_xgb_df,
-    script:
-        # TODO: add
-        # extra_old = c(1, 2, 3, 4, 5, 6, 7, 9),
-        # extra_new = c("100%", "25%", "12.5%", "6.25%", "3.125%", "1.56%", "0.8%", "0.4%"),
-        calculate_maps
-
-
-rule spliceai_aggregate_df:
-    input:
-        variants=spliceai_aggregate_joined_groups,
-        calibrate_on=synonymous_by_mu,
+        plot=all_models_plot,
     params:
-        extra="spliceai_aggregate_bin",
-        transformation="+",
-    output:
-        scores=maps_spliceai_aggregate_df,
-    script:
-        # TODO: add
-        # extra_old = c(1, 2, 3, 4, 5, 6, 7, 9),
-        # extra_new = c("100%", "25%", "12.5%", "6.25%", "3.125%", "1.56%", "0.8%", "0.4%"),
-        calculate_maps
-
-
-rule spliceSM_df:
-    input:
-        variants=splicesm_joined_groups,
-        calibrate_on=synonymous_by_mu,
-    params:
-        extra="spliceSM_bin",
-        transformation="+",
-    output:
-        scores=maps_splicesm_df,
-    script:
-        # TODO: add
-        # extra_old = c(0, 1, 2, 3, 4, 9),
-        # extra_new = c("100%", "50%", "25%", "12.5%", "6.25%", "3.125%"),
-        calculate_maps
-
-
-############################################
-
-
-# TODO: there are bugs here!
-rule all_models_plot:
-    input:
-        maps_dataframes=[
-            maps_spliceai_aggregate_df,
-            maps_spliceai_xgb_df,
-            maps_spliceai_max_df,
-            maps_splicesm_df,
-            maps_mmSplice_df,
-        ],
-    output:
-        plot=maps_all_models_plot,
-    params:
-        # groups=["100%", "25%", "12.5%", "6.25%", "3.125%", "1.56%", "0.8%", "0.4%"],
-        groups=[1, 2, 3, 4, 5, 6, 7, 8, 9],
-        legend_title="",
-        model_labels=["spliceSM_bin", "spliceAI_xgb_bin", "spliceAI_max_bin"],
-        new_model_labels=["SM", "XGB", "MAX"],
-        # model_labels=[
-        #     "spliceSM_bin",
-        #     "spliceAI_max_bin",
-        #     "spliceAI_xgb_bin",
-        #     "spliceai_aggregate_bin",
-        #     "mmSplice_bin",
-        # ],
-        # new_model_labels=["SM", "MAX", "XGB", "AGG", "mmSplice"],
-        # TODO: from gs://gcp-public-data--gnomad/papers/2019-flagship-lof/v1.0/summary_results/maps_plain_exomes.txt.bgz
-        missense_level=0.044,
-        # TODO: from gs://gcp-public-data--gnomad/papers/2019-flagship-lof/v1.0/summary_results/maps_plain_exomes.txt.bgz
-        splicing_level=0.133,
-        # TODO: from gs://gcp-public-data--gnomad/papers/2019-flagship-lof/v1.0/summary_results/maps_plain_exomes.txt.bgz
-        nonsense_level=0.149,
-        title="",
-        separated=True,
-        ylab="MAPS",
+        point_alpha=0.5,
+        dodge_width=0,
+        add_lines=True,
+        legend_position="right",
+        point_size=1,
+        text_size=16,
+        xlab_size=16,
+        color_labels=scores_for_viz,
+        new_color_labels=scores_for_viz,
+        xlab_labels=exponential_bins,
+        new_xlab_labels=exponential_quantiles_labels,
+        score_name="caps",
+        lconf="caps_lconf",
+        uconf="caps_uconf",
         xlab="Top group",
-        xlab_angle=45,
-        xlab_vjust=1,
-        xlab_hjust=1,
-    script:
-        plot_multimodel_maps
-
-
-############################################
-
-
-rule mmSplice_preprocessing:
-    input:
-        groups=mmSplice_scores,
-    output:
-        joined_groups=mmSplice_joined_groups,
-    params:
-        variable="mmSplice_" + fmt,
-    script:
-        join_groups
-
-
-rule spliceai_aggregate_preprocessing:
-    input:
-        groups=aggregate_scores,
-    output:
-        joined_groups=spliceai_aggregate_joined_groups,
-    params:
-        variable="spliceai_aggregate_" + fmt,
-    script:
-        join_groups
-
-
-# Converts bins into "Top N%" groups
-rule splicesm_preprocessing:
-    input:
-        groups=splicing_groups,
-    output:
-        joined_groups=splicesm_joined_groups,
-    params:
-        variable="spliceSM_" + fmt,
-    script:
-        join_groups
-
-
-# Converts bins into "Top N%" groups
-rule spliceai_max_preprocessing:
-    input:
-        groups=splicing_groups,
-    output:
-        joined_groups=spliceai_max_joined_groups,
-    params:
-        variable="spliceAI_max_" + fmt,
-    script:
-        join_groups
-
-
-# Converts bins into "Top N%" groups
-rule spliceai_xgb_preprocessing:
-    input:
-        groups=splicing_groups,
-    output:
-        joined_groups=spliceai_xgb_joined_groups,
-    params:
-        variable="spliceAI_xgb_" + fmt,
-    script:
-        join_groups
-
-
-############################################
-
-
-# TODO: do you need this at all?
-rule misc_files:
-    output:
-        mutation_ht,
-    run:
-        import hail as hl
-
-        mutation_ht = hl.read_table(config["mutation_rate_ht_path"])
-        mutation_ht.export(output[0])
-
-
-############################################
-
-
-rule mmSplice_qplot_tops:
-    input:
-        scores=maps_mmSplice_df,
-    output:
-        plot="maps_mmSplice_tops_by_mmSplice_bin.pdf",
-    params:
-        xlab="mmSplice top group",
-        xlab_labels=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-        new_xlab_labels=[
-            "100%",
-            "50%",
-            "75%",
-            "87.5%",
-            "93.8%",
-            "96.9%",
-            "98.4%",
-            "99.2%",
-            "99.6%",
-            "99.8%",
-        ],
-        xlab_angle=45,
-        xlab_vjust=1,
-        xlab_hjust=1,
+        legend_title="",
+        colors=scores_for_viz_colors,
+        aspect_ratio=2,
+        xlab_angle=30,
+        xlab_vjust=0.5,
+        xlab_hjust=0.5,
         reorder_xlab_by_score=False,
-        score_name="maps",
-        lconf="maps_lconf",
-        uconf="maps_uconf",
     script:
         viz_scores
-
-
-############################################
-
-
-rule spliceAI_max_qplot_tops:
-    input:
-        scores=maps_spliceai_max_df,
-    output:
-        plot="maps_spliceAI_max_tops_by_spliceAI_max_bin.pdf",
-    params:
-        xlab="SpliceAI MAX top group",
-        xlab_labels=[1, 2, 3, 4, 5, 6, 7, 8, 9],
-        new_xlab_labels=[
-            "100%",
-            "25%",
-            "12.5%",
-            "6.25%",
-            "3.125%",
-            "1.56%",
-            "0.8%",
-            "0.4%",
-            "0.2%",
-        ],
-        xlab_angle=45,
-        xlab_vjust=1,
-        xlab_hjust=1,
-        reorder_xlab_by_score=False,
-        score_name="maps",
-        lconf="maps_lconf",
-        uconf="maps_uconf",
-    script:
-        viz_scores
-
-
-rule spliceAI_xgb_qplot_tops:
-    input:
-        scores=maps_spliceai_xgb_df,
-    output:
-        plot="maps_spliceAI_xgb_tops_by_spliceAI_xgb_bin.pdf",
-    params:
-        xlab="SpliceAI XGB top group",
-        xlab_labels=[1, 2, 3, 4, 5, 6, 7, 9],
-        new_xlab_labels=[
-            "100%",
-            "25%",
-            "12.5%",
-            "6.25%",
-            "3.125%",
-            "1.56%",
-            "0.8%",
-            "0.4%",
-        ],
-        xlab_angle=45,
-        xlab_vjust=1,
-        xlab_hjust=1,
-        reorder_xlab_by_score=False,
-        score_name="maps",
-        lconf="maps_lconf",
-        uconf="maps_uconf",
-    script:
-        viz_scores
-
-
-rule spliceSM_qplot_tops:
-    input:
-        scores=maps_splicesm_df,
-    output:
-        plot="maps_splicesm_tops_by_spliceSM_bin.pdf",
-    params:
-        xlab="SpliceSM top group",
-        xlab_labels=[0, 1, 2, 3, 4, 9],
-        new_xlab_labels=["100%", "50%", "25%", "12.5%", "6.25%", "3.125%"],
-        xlab_angle=45,
-        xlab_vjust=1,
-        xlab_hjust=1,
-        reorder_xlab_by_score=False,
-        score_name="maps",
-        lconf="maps_lconf",
-        uconf="maps_uconf",
-    script:
-        viz_scores
-
-
-############################################
-
-
-rule spliceAI_max_qplot_traps_tops:
-    input:
-        scores=maps_spliceai_max_df,
-    output:
-        plot="traps_spliceAI_max_tops_by_spliceAI_max_bin.pdf",
-    params:
-        xlab="SpliceAI MAX top group",
-        xlab_labels=[1, 2, 3, 4, 5, 6, 7, 8, 9],
-        new_xlab_labels=[
-            "100%",
-            "25%",
-            "12.5%",
-            "6.25%",
-            "3.125%",
-            "1.56%",
-            "0.8%",
-            "0.4%",
-            "0.2%",
-        ],
-        xlab_angle=45,
-        xlab_vjust=1,
-        xlab_hjust=1,
-        reorder_xlab_by_score=False,
-        score_name="maps",
-        lconf="maps_lconf",
-        uconf="maps_uconf",
-    script:
-        viz_scores
-
-
-rule spliceAI_xgb_qplot_traps_tops:
-    input:
-        scores=maps_spliceai_xgb_df,
-    output:
-        plot="traps_spliceAI_xgb_tops_by_spliceAI_xgb_bin.pdf",
-    params:
-        xlab="SpliceAI XGB top group",
-        xlab_labels=[1, 2, 3, 4, 5, 6, 7, 9],
-        new_xlab_labels=[
-            "100%",
-            "25%",
-            "12.5%",
-            "6.25%",
-            "3.125%",
-            "1.56%",
-            "0.8%",
-            "0.4%",
-        ],
-        xlab_angle=45,
-        xlab_vjust=1,
-        xlab_hjust=1,
-        reorder_xlab_by_score=False,
-        score_name="maps",
-        lconf="maps_lconf",
-        uconf="maps_uconf",
-    script:
-        viz_scores
-
-
-rule spliceSM_qplot_traps_tops:
-    input:
-        scores=maps_splicesm_df,
-    output:
-        plot="traps_splicesm_tops_by_spliceSM_bin.pdf",
-    params:
-        xlab="SpliceSM top group",
-        xlab_labels=[0, 1, 2, 3, 4, 9],
-        new_xlab_labels=["100%", "50%", "25%", "12.5%", "6.25%", "3.125%"],
-        xlab_angle=45,
-        xlab_vjust=1,
-        xlab_hjust=1,
-        reorder_xlab_by_score=False,
-        score_name="maps",
-        lconf="maps_lconf",
-        uconf="maps_uconf",
-    script:
-        viz_scores
-
-
-###############################################################################
-#                                   Genomes                                   #
-###############################################################################
-# # TODO: finish
-# rule maps_genomes_spliceai_tops_plot:
-#     input:
-#         scores = vars_by_spliceai_bins_genomes_df
-#     output:
-#         plot=maps_genomes_spliceai_tops_plot,
-#     script:
-#         viz_scores
-#

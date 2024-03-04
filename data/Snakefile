@@ -2,6 +2,10 @@ from snakemake.remote.GS import RemoteProvider
 
 GS = RemoteProvider(stay_on_remote=True)
 
+# TODO: can delete most rules and keep only the annotation with SpliceSM and SpliceAI?
+
+# TODO: "preprocessing.py" is a bit different in the benchmarking project
+
 ###############################################################################
 #                                 Input files                                 #
 ###############################################################################
@@ -9,16 +13,16 @@ GS = RemoteProvider(stay_on_remote=True)
 # SpliceAI scores
 spliceai_scores = GS.remote(config["spliceai_scores_path"])
 
-# List of variants annotated with "SpliceSM", "SpliceAI MAX" and
-# "SpliceAI XGB" scores.
-splicesm_scores = GS.remote(config["gcp_rootdir"] + "prediction_scores_v1.txt")
+# List of variants annotated with different versions of SpliceSM and SpliceAI scores.
+splicesm_scores = GS.remote(config["splicesm_scores_path"])
+# GS.remote(config["gcp_rootdir"]    + "gnomad_exomes_v211_synonymous_intronic_splice_hg19_splicesm.txt" )
 # List of variants annotated with "SpliceAI aggregate" and individual
 # SpliceAI scores.
 agg_scores = GS.remote(config["gcp_rootdir"] + "spliceai_aggregate.tsv")
 # List of variants annotated with mmSplice scores.
 mmsplice_scores = GS.remote(
     config["gcp_rootdir"]
-    + "Bernard/gnomad_exomes_v211_synonymous_intronic_splice.mmsplice.hg19_multianno.txt"
+    + "gnomad_exomes_v211_synonymous_intronic_splice.mmsplice.hg19_multianno.txt"
 )
 
 ###############################################################################
@@ -34,6 +38,9 @@ vars_by_spliceai_bins_genomes = GS.remote(
 variants_by_splicesm_bins = GS.remote(config["gcp_rootdir"] + "SpliceSM_bins.tsv")
 variants_by_agg_bins = GS.remote(config["gcp_rootdir"] + "spliceai_aggregate_bins.tsv")
 variants_by_mmsplice_bins = GS.remote(config["gcp_rootdir"] + "mmsplice_bins.tsv")
+variants_w_splicesm_spliceai = GS.remote(
+    config["gcp_rootdir"] + "variants_w_splicesm_spliceai.tsv.bgz"
+)
 
 
 rule all:
@@ -41,34 +48,37 @@ rule all:
         # variants_by_splicesm_bins,
         # variants_by_agg_bins,
         # variants_by_mmsplice_bins,
-        vars_by_spliceai_bins_genomes,
+        # vars_by_spliceai_bins_genomes,
+        variants_w_splicesm_spliceai
 
 
 ###############################################################################
 #                                    Exomes                                   #
 ###############################################################################
 
-rule annotate_exome_variants_w_sm_max_xgb:
-    input:
-        splicesm_scores,
+rule annotate_exome_variants_w_SpliceSM_and_SpliceAI:
     output:
-        variants_by_splicesm_bins,
+        variants_w_splicesm_spliceai,
     run:
         import hail as hl
         from preprocessing import preprocessing
-        from annotate_quantiles import annotate_quantiles
 
         splicesm = hl.import_table(
-            input[0],
+            config["splicesm_scores_path"],
             delimiter="\t",
             missing="",
             types={
-                "spliceAI_max": hl.tfloat64,
-                "spliceAI_xgb": hl.tfloat64,
-                "spliceSM": hl.tfloat64,
+                "sai_max": hl.tfloat64,
+                "sai_sum": hl.tfloat64,
+                "sai_xgb": hl.tfloat64,
+                "ssm_base": hl.tfloat64,
+                "ssm_sad": hl.tfloat64,
+                "ssm_sus": hl.tfloat64,
+                "ssm_anr": hl.tfloat64,
                 "start": hl.tint32,
             },
         )
+
 
         # Index the variants for which scores are available to match
         # the keys of Hail tables
@@ -79,49 +89,44 @@ rule annotate_exome_variants_w_sm_max_xgb:
 
         # Load all variants from gnomAD exomes and perform QC and
         # annotations
-        # TODO: note that no filtering based on
-        # "most_severe_consequence" is done here! Also note that if
-        # you add filtering based on "most_severe_consequence", you
-        # must change the values of thresholds for bins
         exomes = preprocessing(
             config["exomes_ht_path"],
             config["context_ht_path"],
             config["mutation_rates_ht_path"],
-            {"female": config["female"], "male": config["male"]},
+            config["coverage_exomes_ht_path"],
+            {"female": config["female_exomes"], "male": config["male_exomes"]},
         )
 
         splicesm = splicesm[exomes.key]
         exomes = exomes.annotate(
-            spliceAI_xgb=splicesm.spliceAI_xgb,
-            spliceAI_max=splicesm.spliceAI_max,
-            spliceSM=splicesm.spliceSM,
+            sai_max=splicesm.sai_max,
+            sai_sum=splicesm.sai_sum,
+            sai_xgb=splicesm.sai_xgb,
+            ssm_base=splicesm.ssm_base,
+            ssm_sad=splicesm.ssm_sad,
+            ssm_sus=splicesm.ssm_sus,
+            ssm_anr=splicesm.ssm_anr,
         )
 
-        exomes = annotate_quantiles(exomes, "spliceAI_max").rename(
-            {"variable_bin": "spliceAI_max_bin"}
-        )
-        exomes = annotate_quantiles(exomes, "spliceAI_xgb").rename(
-            {"variable_bin": "spliceAI_xgb_bin"}
-        )
-        exomes = annotate_quantiles(exomes, "spliceSM").rename(
-            {"variable_bin": "spliceSM_bin"}
-        )
-
-        exomes.group_by(
+        exomes = exomes.annotate(AC=exomes.freq[0].AC)
+        exomes.select(
             "context",
             "ref",
             "alt",
             "methylation_level",
             "mu",
-            "spliceAI_max_bin",
-            "spliceAI_xgb_bin",
-            "spliceSM_bin",
-        ).aggregate(
-            variant_count=hl.agg.count(),
-            singleton_count=hl.agg.count_where(exomes.freq[0].AC == 1),
-        ).export(
-            output[0]
-        )
+            "worst_csq",
+            "protein_coding",
+            "coverage",
+            "AC",
+            "sai_max",
+            "sai_sum",
+            "sai_xgb",
+            "ssm_base",
+            "ssm_sad",
+            "ssm_sus",
+            "ssm_anr",
+        ).export(output[0])
 
 
 rule annotate_exome_variants_w_agg:
