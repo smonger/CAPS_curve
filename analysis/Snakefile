@@ -101,7 +101,7 @@ all_models_plot_genomes = "all_models_genomes.pdf"
 
 rule all:
     input:
-        all_models_plot,
+        all_models_plot_genomes,
 
 
 ###############################################################################
@@ -201,6 +201,7 @@ rule visualise_scores_exponential_bins_all_models:
 
 # Genomes #####################################################################
 
+
 for score in scores_for_viz:
 
     rule quantiles_to_top_groups_genomes:
@@ -243,6 +244,22 @@ rule combine_scores_for_exponential_bins_genomes:
         combine_tables
 
 
+rule score_values_to_exponential_bins_genomes:
+    input:
+        In=variants_w_splicesm_spliceai_genomes,
+    output:
+        Out=variants_w_splicesm_spliceai_genomes_exp_bins,
+    params:
+        quantiles=exponential_quantiles,
+        scores_to_include=scores_for_viz,
+        # When "True", assume that the input file contains variants
+        # rather than aggregated groups, has "context" and "alleles"
+        # columns and doesn't have the counts columns
+        variants_input=True,
+    script:
+        values_to_quantile_bins
+
+
 rule visualise_scores_exponential_bins_all_models_genomes:
     input:
         scores=variants_w_splicesm_spliceai_genomes_exp_tops_scores,
@@ -260,7 +277,7 @@ rule visualise_scores_exponential_bins_all_models_genomes:
         new_color_labels=scores_for_viz,
         xlab_labels=exponential_bins,
         new_xlab_labels=exponential_quantiles_labels,
-        xlim_breaks=exponential_quantiles_labels[0:10],
+        xlim_breaks=exponential_quantiles_labels,
         score_name="caps",
         lconf="caps_lconf",
         uconf="caps_uconf",
