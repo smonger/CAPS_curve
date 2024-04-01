@@ -20,42 +20,52 @@ if (!is.null(snakemake@params[["scores_to_include"]])) {
   x <- select(x, -all_of(scores_to_remove))
 }
 
-# For use with quantile to replace quantiles with identical values
-# with NAs (in cases when it's not possible to differentiate between
-# very fine quantiles past some point)
-replace_duplicates_with_NA <- function(arr) {
-    arr[duplicated(arr) | duplicated(arr, fromLast = TRUE)] <- NA
-    arr
-}
-
 ########################################
-#TODO: this is just for testing!
-is.na(x$sai_xgb) %>% summary
-is.na(x$ssm_anr) %>% summary
+# TODO: this is just for testing!
+is.na(x$sai_xgb) %>% summary()
 x <- na.omit(x)
-is.na(x$sai_xgb) %>% summary
-is.na(x$ssm_anr) %>% summary
+is.na(x$sai_xgb) %>% summary()
 ########################################
 
 x %>%
-    mutate_at(vars(starts_with("sai_"), starts_with("ssm_")), ~ {
+  mutate_at(vars(starts_with("sai_"), starts_with("ssm_")), ~ {
     if (any(is.na(.))) {
       stop("NAs found in input scores")
     } else {
-      cut(.,
-        breaks = replace_duplicates_with_NA(quantile(.,
-          probs = snakemake@params[["quantiles"]],
-        )),
-        include.lowest = TRUE,
-        # NOTE: remove to have intervals instead of numbers
-        labels = FALSE
+      quantiles <- quantile(.,
+        probs = snakemake@params[["quantiles"]],
+      )
+      if (length(snakemake@params[["quantiles"]]) != 16) stop("Wrong quantiles")
+      case_when(
+        (. >= quantiles[16]) ~ 16,
+        (. >= quantiles[15]) ~ 15,
+        (. >= quantiles[14]) ~ 14,
+        (. >= quantiles[13]) ~ 13,
+        (. >= quantiles[12]) ~ 12,
+        (. >= quantiles[11]) ~ 11,
+        (. >= quantiles[10]) ~ 10,
+        (. >= quantiles[9]) ~ 9,
+        (. >= quantiles[8]) ~ 8,
+        (. >= quantiles[7]) ~ 7,
+        (. >= quantiles[6]) ~ 6,
+        (. >= quantiles[5]) ~ 5,
+        (. >= quantiles[4]) ~ 4,
+        (. >= quantiles[3]) ~ 3,
+        (. >= quantiles[2]) ~ 2,
+        (. >= quantiles[1]) ~ 1,
+        TRUE ~ NA_real_
       )
     }
   }) -> x
 
-# NOTE: this makes the top 100% group centered (one point)
-if (!is.null(snakemake@params[["NA_omit"]]) && snakemake@params[["NA_omit"]]) {
-  x <- na.omit(x)
-}
+x %>%
+  # All scores should end with "_score", with the only exception being CADD
+  mutate_at(vars(ends_with("_score"), starts_with("CADD_")), ~ {
+    if (any(is.na(.))) {
+      stop("NAs found in quantile bins")
+    } else {
+      .
+    }
+  }) -> x
 
 write.table(x, file = snakemake@output[["Out"]], quote = FALSE, row.names = FALSE, sep = "\t")

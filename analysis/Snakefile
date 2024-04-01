@@ -8,47 +8,37 @@ combine_tables = "combine_tables.R"
 join_groups = "join_groups.R"
 values_to_quantile_bins = "values_to_quantile_bins.R"
 calculate_caps = "calculate_caps.R"
-calculate_maps = "calculate_maps.R"
 viz_scores = "viz_scores2.R"
 
 # CAPS files ##################################################################
 # Synonymous variants with 4 missing contexts added
 syn_by_context_p4 = "../../CAPS/model/phat.tsv"
+syn_by_context_p4_genomes = "../../CAPS/model/phat_genomes.tsv"
 ###############################################################################
 
 if config["gcp"] == False:
-    # SpliceAI scores
-    vars_by_spliceai_bins_genomes = "../files/genomes_spliceai_bins.tsv"
-    # mmSplice scores
-    mmSplice_scores = "../files/mmsplice_bins.tsv"
-    # Aggregate scores
-    aggregate_scores = "../files/spliceai_aggregate_bins.tsv"
     # Variants of interest annotated with splicing scores (one or many)
     splicing_groups = "../files/SpliceSM_bins.tsv"
-    # Mutability table
-    mutation_ht = "../files/mutation_ht.tsv"
-    # Synonymous variants for calibration of MAPS
-    synonymous_by_mu = "../files/syn_vars_coding_by_mu.tsv"
     # All variants annotated with different versions of SpliceSM and SpliceAI scores
-    variants_w_splicesm_spliceai = "../files/variants_w_splicesm_spliceai.tsv"
+    variants_w_splicesm_spliceai = "../files/variants_w_splicesm_spliceai.tsv.bgz"
+    # Variants from genomes annotated with different versions of SpliceSM and SpliceAI scores
+    variants_w_splicesm_spliceai_genomes = (
+        "../files/variants_w_splicesm_spliceai_genomes.tsv.bgz"
+    )
 else:
     from snakemake.remote.GS import RemoteProvider
 
     GS = RemoteProvider()
-    # SpliceAI scores
-    vars_by_spliceai_bins_genomes = GS.remote(
-        config["gcp_rootdir"] + "genomes_spliceai_bins.tsv"
-    )
-    # mmSplice scores
-    mmSplice_scores = GS.remote(config["gcp_rootdir"] + "mmsplice_bins.tsv")
-    # Aggregate scores
-    aggregate_scores = GS.remote(config["gcp_rootdir"] + "spliceai_aggregate_bins.tsv")
     # Variants of interest annotated with splicing scores (one or many)
     splicing_groups = GS.remote(config["gcp_rootdir"] + "SpliceSM_bins.tsv")
-    # Mutability table
-    mutation_ht = GS.remote(config["gcp_rootdir"] + "mutation_ht.tsv")
-    # Synonymous variants for calibration of MAPS
-    synonymous_by_mu = GS.remote(config["gcp_rootdir"] + "syn_vars_coding_by_mu.tsv")
+    # All variants annotated with different versions of SpliceSM and SpliceAI scores
+    variants_w_splicesm_spliceai = GS.remote(
+        config["gcp_rootdir"] + "variants_w_splicesm_spliceai.tsv.bgz"
+    )
+    # Variants from genomes annotated with different versions of SpliceSM and SpliceAI scores
+    variants_w_splicesm_spliceai_genomes = GS.remote(
+        config["gcp_rootdir"] + "variants_w_splicesm_spliceai_genomes.tsv.bgz"
+    )
 
 # Parameters ##################################################################
 
@@ -56,10 +46,9 @@ scores_for_viz = [
     "sai_max",
     "sai_sum",
     "sai_xgb",
-    "ssm_base",
-    "ssm_sad",
-    "ssm_sus",
-    "ssm_anr",
+    "ssm_prev",
+    "ssm_new0",
+    "ssm_new1",
 ]
 
 n = len(scores_for_viz)
@@ -70,42 +59,42 @@ RGB_tuples = list(
 scores_for_viz_colors = ["#%02x%02x%02x" % rgb for rgb in RGB_tuples]
 
 exponential_quantiles = [
-    0.0000,
-    0.5000,
-    0.7500,
-    0.8750,
-    0.9375,
-    0.9688,
-    0.9844,
-    0.9922,
+    0.000000,
+    0.500000,
+    0.750000,
+    0.875000,
+    0.937500,
+    0.968750,
+    0.984375,
+    0.992188,
+    0.996094,
+    0.998047,
+    0.999023,
+    0.999512,
+    0.999756,
+    0.999878,
+    0.999939,
+    0.999969,
 ]
-exponential_bins = [1, 2, 3, 4, 5, 6, 7, 8]
-exponential_quantiles_labels = ["100%", "50%", "25%", "12.5%", "6.25%", "3.125%", "1.5625%", "0.78125%"]
+exponential_bins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+exponential_quantiles_labels = exponential_bins
 
 # Output files ################################################################
-
-maps_genomes_spliceai_tops_plot = "maps_genomes_spliceai_tops.pdf"
-
 variants_w_splicesm_spliceai_exp_tops_scores = (
     "variants_w_splicesm_spliceai_exp_tops_scores.tsv"
 )
 
 variants_w_splicesm_spliceai_exp_bins = "variants_w_splicesm_spliceai_exp_bins.tsv"
 
-# "Top N%" groups for each score
-splicesm_joined_groups = "splicesm_joined_groups.tsv"
-spliceai_max_joined_groups = "spliceai_max_joined_groups.tsv"
-spliceai_xgb_joined_groups = "spliceai_xgb_joined_groups.tsv"
-spliceai_aggregate_joined_groups = "spliceai_aggregate_joined_groups.tsv"
-mmSplice_joined_groups = "mmSplice_joined_groups.tsv"
+variants_w_splicesm_spliceai_genomes_exp_tops_scores = (
+    "variants_w_splicesm_spliceai_genomes_exp_tops_scores.tsv"
+)
 
-# Output files ################################################################
-maps_mmSplice_df = "maps_mmSplice.tsv"
-maps_splicesm_df = "maps_splicesm.tsv"
-maps_spliceai_xgb_df = "maps_spliceai_xgb.tsv"
-maps_spliceai_max_df = "maps_spliceai_max.tsv"
-maps_spliceai_aggregate_df = "maps_spliceai_aggregate.tsv"
+variants_w_splicesm_spliceai_genomes_exp_bins = (
+    "variants_w_splicesm_spliceai_genomes_exp_bins.tsv"
+)
 all_models_plot = "all_models.pdf"
+all_models_plot_genomes = "all_models_genomes.pdf"
 
 ###############################################################################
 
@@ -116,6 +105,8 @@ rule all:
 
 
 ###############################################################################
+
+# Exomes ######################################################################
 
 for score in scores_for_viz:
 
@@ -165,18 +156,14 @@ rule score_values_to_exponential_bins:
     output:
         Out=variants_w_splicesm_spliceai_exp_bins,
     params:
-        # TODO: remove, the below is only for "values_to_quantile_bins.R"
-        # quantiles=exponential_quantiles,
-        # NA_omit=True,
+        quantiles=exponential_quantiles,
+        scores_to_include=scores_for_viz,
         # When "True", assume that the input file contains variants
         # rather than aggregated groups, has "context" and "alleles"
         # columns and doesn't have the counts columns
         variants_input=True,
-        scores_to_include=scores_for_viz,
-        max_group = 12
     script:
-        # TODO: reference by variable name
-        "values_to_quantile_bins2.R"
+        values_to_quantile_bins
 
 
 rule visualise_scores_exponential_bins_all_models:
@@ -196,6 +183,84 @@ rule visualise_scores_exponential_bins_all_models:
         new_color_labels=scores_for_viz,
         xlab_labels=exponential_bins,
         new_xlab_labels=exponential_quantiles_labels,
+        xlim_breaks=exponential_quantiles_labels,
+        score_name="caps",
+        lconf="caps_lconf",
+        uconf="caps_uconf",
+        xlab="Top group",
+        legend_title="",
+        colors=scores_for_viz_colors,
+        aspect_ratio=2,
+        xlab_angle=30,
+        xlab_vjust=0.5,
+        xlab_hjust=0.5,
+        reorder_xlab_by_score=False,
+    script:
+        viz_scores
+
+
+# Genomes #####################################################################
+
+for score in scores_for_viz:
+
+    rule quantiles_to_top_groups_genomes:
+        name:
+            "quantiles_to_top_groups_genomes_{score}"
+        input:
+            groups=variants_w_splicesm_spliceai_genomes_exp_bins,
+        output:
+            joined_groups="variants_w_splicesm_spliceai_genomes_exp_tops_{score}.tsv",
+        params:
+            variable="{score}",
+        script:
+            join_groups
+
+    rule scores_for_top_groups_genomes:
+        name:
+            "genomes_top_groups_{score}"
+        input:
+            variants="variants_w_splicesm_spliceai_genomes_exp_tops_{score}.tsv",
+            exp_variants=syn_by_context_p4_genomes,
+        output:
+            scores="genomes_top_groups_{score}.tsv",
+        params:
+            phat_method="Var",
+            confint_method="CAPS",
+            variable="{score}",
+        script:
+            calculate_caps
+
+
+rule combine_scores_for_exponential_bins_genomes:
+    input:
+        In=expand(
+            "genomes_top_groups_{score}.tsv",
+            score=scores_for_viz,
+        ),
+    output:
+        Out=variants_w_splicesm_spliceai_genomes_exp_tops_scores,
+    script:
+        combine_tables
+
+
+rule visualise_scores_exponential_bins_all_models_genomes:
+    input:
+        scores=variants_w_splicesm_spliceai_genomes_exp_tops_scores,
+    output:
+        plot=all_models_plot_genomes,
+    params:
+        point_alpha=0.5,
+        dodge_width=0,
+        add_lines=True,
+        legend_position="right",
+        point_size=1,
+        text_size=16,
+        xlab_size=16,
+        color_labels=scores_for_viz,
+        new_color_labels=scores_for_viz,
+        xlab_labels=exponential_bins,
+        new_xlab_labels=exponential_quantiles_labels,
+        xlim_breaks=exponential_quantiles_labels[0:10],
         score_name="caps",
         lconf="caps_lconf",
         uconf="caps_uconf",
