@@ -27,5 +27,6 @@
 
 ### How to run
 
-- To use copies from `files/` (faster): `snakemake --cores all --config gcp="False"`
-- To use GS files (slower): `snakemake --cores all --config gcp="True" gcp_rootdir="<bucket_name>/some_directory/"`
+1. `git clone` the code for CAPS (https://github.com/VCCRI/CAPS) into the same root directory as `MAPS_for_splicing/`
+2. Navigate to `MAPS_for_splicing/analysis/`
+3. `snakemake --cores all --config gcp="False"` (faster: uses copies from `files/`) or `snakemake --cores all --config gcp="True" gcp_rootdir="<bucket_name>/some_directory/"` (slower: uses GS files)
