@@ -17,8 +17,6 @@ syn_by_context_p4_genomes = "../../CAPS/model/phat_genomes.tsv"
 ###############################################################################
 
 if config["gcp"] == False:
-    # Variants of interest annotated with splicing scores (one or many)
-    splicing_groups = "../files/SpliceSM_bins.tsv"
     # All variants annotated with different versions of SpliceSM and SpliceAI scores
     variants_w_splicesm_spliceai = "../files/variants_w_splicesm_spliceai.tsv.bgz"
     # Variants from genomes annotated with different versions of SpliceSM and SpliceAI scores
@@ -29,8 +27,6 @@ else:
     from snakemake.remote.GS import RemoteProvider
 
     GS = RemoteProvider()
-    # Variants of interest annotated with splicing scores (one or many)
-    splicing_groups = GS.remote(config["gcp_rootdir"] + "SpliceSM_bins.tsv")
     # All variants annotated with different versions of SpliceSM and SpliceAI scores
     variants_w_splicesm_spliceai = GS.remote(
         config["gcp_rootdir"] + "variants_w_splicesm_spliceai.tsv.bgz"

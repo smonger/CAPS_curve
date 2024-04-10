@@ -12,7 +12,7 @@
 
 ## The "Data" pipeline
 
-`data/` contains [Hail](https://hail.is/) and Snakemake code that requires execution in Google Cloud and saves files to a Google Storage (GS) bucket. Copies of the generated files are available in `files/`.
+`data/` contains [Hail](https://hail.is/) and Snakemake code that requires execution in Google Cloud and saves files to a Google Storage (GS) bucket.
 
 ### How to run
 
@@ -29,4 +29,4 @@
 
 1. `git clone` the code for CAPS (https://github.com/VCCRI/CAPS) into the same root directory as `MAPS_for_splicing/`
 2. Navigate to `MAPS_for_splicing/analysis/`
-3. `snakemake --cores all --config gcp="False"` (faster: uses copies from `files/`) or `snakemake --cores all --config gcp="True" gcp_rootdir="<bucket_name>/some_directory/"` (slower: uses GS files)
+3. `snakemake --cores all --config gcp="True" gcp_rootdir="<bucket_name>/some_directory/"` (slower; will download the GS files each time) or `snakemake --cores all --config gcp="False"` (faster; will re-use the contents of `files/`; create the directory and download the required files from GS into it if necessary)
