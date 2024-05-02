@@ -9,8 +9,10 @@ GS = RemoteProvider(stay_on_remote=True)
 ###############################################################################
 
 # List of variants annotated with different versions of SpliceSM and SpliceAI scores.
-splicesm_scores = GS.remote(config["splicesm_scores_path"])
-splicesm_scores_genomes = GS.remote(config["splicesm_scores_genomes_path"])
+#splicesm_scores = GS.remote(config["splicesm_scores_path"])
+#splicesm_scores_genomes = GS.remote(config["splicesm_scores_genomes_path"])
+splicesm_scores = GS.remote(config["gcp_rootdir"] + "gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz")
+#splicesm_scores_genomes = GS.remote(config["gcp_rootdir"] + "gnomad_genomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz")
 
 ###############################################################################
 #                                 Output files                                #
@@ -18,20 +20,20 @@ splicesm_scores_genomes = GS.remote(config["splicesm_scores_genomes_path"])
 
 # Exomes ######################################################################
 variants_w_splicesm_spliceai = GS.remote(
-    config["gcp_rootdir"] + "variants_w_splicesm_spliceai.tsv.bgz"
+    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_absplice.tsv.bgz"
 )
 
 # Genomes #####################################################################
-variants_w_splicesm_spliceai_genomes = GS.remote(
-    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_genomes.tsv.bgz"
-)
+#variants_w_splicesm_spliceai_genomes = GS.remote(
+#    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_absplice_genomes.tsv.bgz"
+#)
 
 ###############################################################################
 
 
 rule all:
     input:
-        variants_w_splicesm_spliceai_genomes,
+        variants_w_splicesm_spliceai_exomes,
 
 
 ###############################################################################
@@ -41,7 +43,7 @@ rule all:
 
 rule annotate_exomes_w_SpliceSM_and_SpliceAI:
     output:
-        variants_w_splicesm_spliceai,
+        variants_w_splicesm_spliceai_absplice,
     run:
         import hail as hl
         from preprocessing import preprocessing
@@ -64,9 +66,28 @@ rule annotate_exomes_w_SpliceSM_and_SpliceAI:
             sai_max=float64(splicesm.sai_max),
             sai_sum=float64(splicesm.sai_sum),
             sai_xgb=float64(splicesm.sai_xgb),
-            ssm_prev=float64(splicesm.ssm_prev),
-            ssm_new0=float64(splicesm.ssm_new0),
-            ssm_new1=float64(splicesm.ssm_new1),
+            sai_125=float64(splicesm.sai_sum),
+            sai_175=float64(splicesm.sai_sum),
+            ssm_1a=float64(splicesm.ssm_1a),
+            ssm_1b=float64(splicesm.ssm_1b),
+            ssm_1c=float64(splicesm.ssm_1c),
+            ssm_1d=float64(splicesm.ssm_1d),
+            ssm_1e=float64(splicesm.ssm_1e),
+            ssm_1f=float64(splicesm.ssm_1f),
+            ssm_1g=float64(splicesm.ssm_1g),
+            ssm_1h=float64(splicesm.ssm_1h),
+            ssm_1i=float64(splicesm.ssm_1i),
+            ssm_1j=float64(splicesm.ssm_1j),
+            ssm_2a=float64(splicesm.ssm_2a),
+            ssm_2b=float64(splicesm.ssm_2b),
+            ssm_2c=float64(splicesm.ssm_2c),
+            ssm_2d=float64(splicesm.ssm_2d),
+            ssm_2e=float64(splicesm.ssm_2e),
+            ssm_2f=float64(splicesm.ssm_2f),
+            ssm_2g=float64(splicesm.ssm_2g),
+            ssm_2h=float64(splicesm.ssm_2h),
+            ssm_2i=float64(splicesm.ssm_2i),
+            ssm_2j=float64(splicesm.ssm_2j),
             start=int32(splicesm.start),
         )
 
