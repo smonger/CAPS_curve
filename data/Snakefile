@@ -20,12 +20,12 @@ splicesm_scores = GS.remote(config["gcp_rootdir"] + "gnomad_exomes_v2111_sai_ssm
 
 # Exomes ######################################################################
 variants_w_splicesm_spliceai = GS.remote(
-    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_absplice.tsv.bgz"
+    config["gcp_rootdir"] + "variants_w_splicesm_spliceai.tsv.bgz"
 )
 
 # Genomes #####################################################################
 #variants_w_splicesm_spliceai_genomes = GS.remote(
-#    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_absplice_genomes.tsv.bgz"
+#    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_genomes.tsv.bgz"
 #)
 
 ###############################################################################
@@ -33,7 +33,7 @@ variants_w_splicesm_spliceai = GS.remote(
 
 rule all:
     input:
-        variants_w_splicesm_spliceai_exomes,
+        variants_w_splicesm_spliceai,
 
 
 ###############################################################################
@@ -43,7 +43,7 @@ rule all:
 
 rule annotate_exomes_w_SpliceSM_and_SpliceAI:
     output:
-        variants_w_splicesm_spliceai_absplice,
+        variants_w_splicesm_spliceai,
     run:
         import hail as hl
         from preprocessing import preprocessing
@@ -88,6 +88,7 @@ rule annotate_exomes_w_SpliceSM_and_SpliceAI:
             ssm_2h=float64(splicesm.ssm_2h),
             ssm_2i=float64(splicesm.ssm_2i),
             ssm_2j=float64(splicesm.ssm_2j),
+            absplice=float64(splicesm.absplice),
             start=int32(splicesm.start),
         )
 
