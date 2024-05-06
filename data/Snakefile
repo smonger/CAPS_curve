@@ -50,7 +50,7 @@ rule annotate_exomes_w_SpliceSM_and_SpliceAI:
 
         # Read the scores, converting "chrN" (hg38) to "N" (hg19)
         splicesm = hl.import_table(
-            config["gcp_rootdir"],
+            "gs://vccri-mikgud-uscentral1/gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz",
             delimiter="\t",
             missing="",
             find_replace=("chr", ""),
@@ -142,7 +142,7 @@ rule annotate_exomes_w_SpliceSM_and_SpliceAI:
         )
 
         exomes = exomes.annotate(AC=exomes.freq[0].AC)
-        exomes=exomes.filter(exomes.worst_csq!="stop_gain")
+        exomes=exomes.filter(exomes.worst_csq!="stop_gained")
         exomes.select(
             "context",
             "ref",
