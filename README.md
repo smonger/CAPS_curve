@@ -23,6 +23,24 @@ Tested with Hail version 0.2.107 and Snakemake 7.32
 3. `git clone` this repository and navigate to `data/`
 4. Run the pipeline: `snakemake --cores all --configfile config.yaml --config gcp_rootdir="<bucket_name>/some_directory/"`
 
+Alternatively, in Step 4 you can submit the pipeline as a job. Create `job.py` containing the following:
+```
+import snakemake
+snakemake.main(
+	[
+		"--snakefile",
+		"/path/to/Snakefile",
+		"--cores",
+		"all",
+		"--configfile",
+		"/path/to/config.yaml",
+		"--config",
+		'gcp_rootdir="<bucket_name>/some_directory/"',
+	]
+)
+```
+Submit the script with `hailctl dataproc submit <cluster_name> job.py`
+
 ## The "Analysis" pipeline
 
 `analysis/` contains scripts that calculate and visualise MAPS scores using files created in `data/`.
