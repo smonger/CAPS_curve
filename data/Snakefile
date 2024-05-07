@@ -11,29 +11,29 @@ GS = RemoteProvider(stay_on_remote=True)
 # List of variants annotated with different versions of SpliceSM and SpliceAI scores.
 #splicesm_scores = GS.remote(config["splicesm_scores_path"])
 #splicesm_scores_genomes = GS.remote(config["splicesm_scores_genomes_path"])
-splicesm_scores = GS.remote(config["gcp_rootdir"] + "gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz")
-#splicesm_scores_genomes = GS.remote(config["gcp_rootdir"] + "gnomad_genomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz")
+#splicesm_scores = GS.remote(config["gcp_rootdir"] + "gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz")
+splicesm_scores_genomes = GS.remote(config["gcp_rootdir"] + "gnomad_genomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz")
 
 ###############################################################################
 #                                 Output files                                #
 ###############################################################################
 
 # Exomes ######################################################################
-variants_w_splicesm_spliceai = GS.remote(
-    config["gcp_rootdir"] + "variants_w_splicesm_spliceai.tsv.bgz"
-)
+#variants_w_splicesm_spliceai = GS.remote(
+#    config["gcp_rootdir"] + "variants_w_splicesm_spliceai.tsv.bgz"
+#)
 
 # Genomes #####################################################################
-#variants_w_splicesm_spliceai_genomes = GS.remote(
-#    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_genomes.tsv.bgz"
-#)
+variants_w_splicesm_spliceai_genomes = GS.remote(
+    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_genomes.tsv.bgz"
+)
 
 ###############################################################################
 
 
 rule all:
     input:
-        variants_w_splicesm_spliceai,
+        variants_w_splicesm_spliceai_genomes,
 
 
 ###############################################################################
@@ -41,9 +41,155 @@ rule all:
 ###############################################################################
 
 
-rule annotate_exomes_w_SpliceSM_and_SpliceAI:
+#rule annotate_exomes_w_SpliceSM_and_SpliceAI:
+#    output:
+#        variants_w_splicesm_spliceai,
+#    run:
+#        import hail as hl
+#        from preprocessing import preprocessing
+
+#        # Read the scores, converting "chrN" (hg38) to "N" (hg19)
+#        splicesm = hl.import_table(
+#            "gs://vccri-mikgud-uscentral1/gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz",
+#            delimiter="\t",
+#            missing="",
+#            find_replace=("chr", ""),
+#        )
+
+#        # The first line (from the header) will be malformed - get rid of it
+#        splicesm = splicesm.filter(splicesm.start != "start")
+
+#        # Convert the types from "str" to integer/float
+#        from hail.expr.functions import int32, float64
+
+#        splicesm = splicesm.transmute(
+#            sai_sum=float64(splicesm.sai_sum),
+#            sai_max=float64(splicesm.sai_max),
+#            sai_max_patch=float64(splicesm.sai_max_patch),
+#            sai_sum_patch=float64(splicesm.sai_sum_patch),
+#            sai_loss125=float64(splicesm.sai_loss125),
+#            sai_loss175=float64(splicesm.sai_loss175),
+#            ssm_1a=float64(splicesm.ssm_1a),
+#            ssm_1b=float64(splicesm.ssm_1b),
+#            ssm_1c=float64(splicesm.ssm_1c),
+#            ssm_1d=float64(splicesm.ssm_1d),
+#            ssm_1e=float64(splicesm.ssm_1e),
+#            ssm_1f=float64(splicesm.ssm_1f),
+#            ssm_1g=float64(splicesm.ssm_1g),
+#            ssm_1h=float64(splicesm.ssm_1h),
+#            ssm_1i=float64(splicesm.ssm_1i),
+#            ssm_1j=float64(splicesm.ssm_1j),
+#            ssm_2a=float64(splicesm.ssm_2a),
+#            ssm_2b=float64(splicesm.ssm_2b),
+#            ssm_2c=float64(splicesm.ssm_2c),
+#            ssm_2d=float64(splicesm.ssm_2d),
+#            ssm_2e=float64(splicesm.ssm_2e),
+#            ssm_2f=float64(splicesm.ssm_2f),
+#            ssm_2g=float64(splicesm.ssm_2g),
+#            ssm_2h=float64(splicesm.ssm_2h),
+#            ssm_2i=float64(splicesm.ssm_2i),
+#            ssm_2j=float64(splicesm.ssm_2j),
+#            absplice=float64(splicesm.absplice),
+#            start=int32(splicesm.start),
+#        )
+
+        # Index the variants for which scores are available to match
+        # the keys of Hail tables
+#        splicesm = splicesm.key_by(
+#            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh37"),
+#            alleles=[splicesm.ref, splicesm.alt],
+#        )
+
+        # Load all variants from gnomAD exomes and perform QC and
+        # annotations
+#        exomes = preprocessing(
+#           config["exomes_ht_path"],
+#            config["context_ht_path"],
+#            config["mutation_rates_ht_path"],
+#            config["coverage_exomes_ht_path"],
+#            {"female": config["female_exomes"], "male": config["male_exomes"]},
+#        )
+
+#        splicesm = splicesm[exomes.key]
+#        exomes = exomes.annotate(
+#            sai_sum=splicesm.sai_sum,
+#            sai_max=splicesm.sai_max,
+#            sai_max_patch=splicesm.sai_max_patch,
+#            sai_sum_patch=splicesm.sai_sum_patch,
+#            sai_loss125=splicesm.sai_loss125,
+#            sai_loss175=splicesm.sai_loss175,
+#            ssm_1a=splicesm.ssm_1a,
+#            ssm_1b=splicesm.ssm_1b,
+#            ssm_1c=splicesm.ssm_1c,
+#            ssm_1d=splicesm.ssm_1d,
+#            ssm_1e=splicesm.ssm_1e,
+#            ssm_1f=splicesm.ssm_1f,
+#            ssm_1g=splicesm.ssm_1g,
+#            ssm_1h=splicesm.ssm_1h,
+#            ssm_1i=splicesm.ssm_1i,
+#            ssm_1j=splicesm.ssm_1j,
+#            ssm_2a=splicesm.ssm_2a,
+#            ssm_2b=splicesm.ssm_2b,
+#            ssm_2c=splicesm.ssm_2c,
+#            ssm_2d=splicesm.ssm_2d,
+#            ssm_2e=splicesm.ssm_2e,
+#            ssm_2f=splicesm.ssm_2f,
+#            ssm_2g=splicesm.ssm_2g,
+#            ssm_2h=splicesm.ssm_2h,
+#            ssm_2i=splicesm.ssm_2i,
+#            ssm_2j=splicesm.ssm_2j,
+#            absplice=splicesm.absplice,
+#        )
+
+#        exomes = exomes.annotate(AC=exomes.freq[0].AC)
+#        exomes=exomes.filter(exomes.worst_csq!="stop_gained")
+#        exomes.select(
+#            "context",
+#            "ref",
+#            "alt",
+#            "methylation_level",
+#            "mu",
+#            "worst_csq",
+#            "protein_coding",
+#            "coverage",
+#          "sai_sum",
+#            "sai_max",
+#            "sai_max_patch",
+3            "sai_sum_patch",
+#            "sai_loss125",
+#            "sai_loss175",
+#            "ssm_1a",
+#            "ssm_1b",
+#            "ssm_1c",
+#            "ssm_1d",
+#            "ssm_1e",
+#            "ssm_1f",
+#            "ssm_1g",
+#            "ssm_1h",
+#            "ssm_1i",
+#            "ssm_1j",
+#            "ssm_2a",
+#            "ssm_2b",
+#            "ssm_2c",
+#            "ssm_2d",
+#            "ssm_2e",
+#            "ssm_2f",
+#            "ssm_2g",
+#            "ssm_2h",
+#            "ssm_2i",
+#            "ssm_2j",
+#            "absplice",
+#        ).export(output[0])
+
+
+###############################################################################
+#                                   Genomes                                   #
+###############################################################################
+
+
+rule annotate_genomes_w_SpliceSM_and_SpliceAI:
     output:
-        variants_w_splicesm_spliceai,
+        variants_w_splicesm_spliceai_genomes,
     run:
         import hail as hl
         from preprocessing import preprocessing
@@ -100,18 +246,18 @@ rule annotate_exomes_w_SpliceSM_and_SpliceAI:
             alleles=[splicesm.ref, splicesm.alt],
         )
 
-        # Load all variants from gnomAD exomes and perform QC and
+        # Load all variants from gnomAD genomes and perform QC and
         # annotations
-        exomes = preprocessing(
-            config["exomes_ht_path"],
+        genomes = preprocessing(
+            config["genomes_ht_path"],
             config["context_ht_path"],
             config["mutation_rates_ht_path"],
-            config["coverage_exomes_ht_path"],
-            {"female": config["female_exomes"], "male": config["male_exomes"]},
+            config["coverage_genomes_ht_path"],
+            {"female": config["female_genomes"], "male": config["male_genomes"]},
         )
 
-        splicesm = splicesm[exomes.key]
-        exomes = exomes.annotate(
+        splicesm = splicesm[genomes.key]
+        genomes = genomes.annotate(
             sai_sum=splicesm.sai_sum,
             sai_max=splicesm.sai_max,
             sai_max_patch=splicesm.sai_max_patch,
@@ -141,9 +287,9 @@ rule annotate_exomes_w_SpliceSM_and_SpliceAI:
             absplice=splicesm.absplice,
         )
 
-        exomes = exomes.annotate(AC=exomes.freq[0].AC)
-        exomes=exomes.filter(exomes.worst_csq!="stop_gained")
-        exomes.select(
+        genomes = genomes.annotate(AC=genomes.freq[0].AC)
+        genomes=genomes.filter(genomes.worst_csq!="stop_gained")
+        genomes.select(
             "context",
             "ref",
             "alt",
@@ -181,86 +327,3 @@ rule annotate_exomes_w_SpliceSM_and_SpliceAI:
             "ssm_2j",
             "absplice",
         ).export(output[0])
-
-
-###############################################################################
-#                                   Genomes                                   #
-###############################################################################
-
-
-#rule annotate_genomes_w_SpliceSM_and_SpliceAI:
-#    output:
-#        variants_w_splicesm_spliceai_genomes,
-#    run:
-#        import hail as hl
-#        from preprocessing import preprocessing
-
-#        # Read the scores, converting "chrN" (hg38) to "N" (hg19)
-#        splicesm = hl.import_table(
-#            config["splicesm_scores_genomes_path"],
-#            delimiter="\t",
-#            missing="",
-#            find_replace=("chr", ""),
-#        )
-
-#        # The first line (from the header) will be malformed - get rid of it
-#        splicesm = splicesm.filter(splicesm.start != "start")
-
-#        # Convert the types from "str" to integer/float
-#        from hail.expr.functions import int32, float64
-
-#        splicesm = splicesm.transmute(
-#            sai_max=float64(splicesm.sai_max),
-#            sai_sum=float64(splicesm.sai_sum),
-#            sai_xgb=float64(splicesm.sai_xgb),
-#            ssm_prev=float64(splicesm.ssm_prev),
-#            ssm_new0=float64(splicesm.ssm_new0),
-#            ssm_new1=float64(splicesm.ssm_new1),
-#            start=int32(splicesm.start),
-#        )
-
-#        # Index the variants for which scores are available to match
-#        # the keys of Hail tables
-#        splicesm = splicesm.key_by(
-#            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh37"),
-#            alleles=[splicesm.ref, splicesm.alt],
-#        )
-
-#        # Load all variants from gnomAD genomes and perform QC and
-#        # annotations
-#        genomes = preprocessing(
-#            config["genomes_ht_path"],
-#            config["context_ht_path"],
-#            config["mutation_rates_ht_path"],
-#            config["coverage_genomes_ht_path"],
-#            {"female": config["female_genomes"], "male": config["male_genomes"]},
-#        )
-
-#        splicesm = splicesm[genomes.key]
-#        genomes = genomes.annotate(
-#            sai_max=splicesm.sai_max,
-#            sai_sum=splicesm.sai_sum,
-#            sai_xgb=splicesm.sai_xgb,
-#            ssm_prev=splicesm.ssm_prev,
-#            ssm_new0=splicesm.ssm_new0,
-#            ssm_new1=splicesm.ssm_new1,
-#        )
-
-#        genomes = genomes.annotate(AC=genomes.freq[0].AC)
-#        genomes.select(
-#            "context",
-#            "ref",
-#            "alt",
-#            "methylation_level",
-#            "mu",
-#            "worst_csq",
-#            "protein_coding",
-#            "coverage",
-#            "AC",
-#            "sai_max",
-#            "sai_sum",
-#            "sai_xgb",
-#            "ssm_prev",
-#            "ssm_new0",
-#            "ssm_new1",
-#        ).export(output[0])
