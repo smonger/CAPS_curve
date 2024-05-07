@@ -155,7 +155,7 @@ rule all:
 #          "sai_sum",
 #            "sai_max",
 #            "sai_max_patch",
-3            "sai_sum_patch",
+#            "sai_sum_patch",
 #            "sai_loss125",
 #            "sai_loss175",
 #            "ssm_1a",
