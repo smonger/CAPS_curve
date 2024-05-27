@@ -24,4 +24,4 @@ lof_metrics_by_gene: "https://storage.googleapis.com/gcp-public-data--gnomad/rel
 
 # Coverage
 coverage_exomes_ht_path: "gs://gcp-public-data--gnomad/release/4.0/coverage/exomes/gnomad.exomes.v4.0.coverage.ht"
-coverage_genomes_ht_path: "gs://gcp-public-data--gnomad/release/2.1/coverage/genomes/gnomad.genomes.r2.1.coverage.ht" #Not provided in v4?
+coverage_genomes_ht_path: "gs://gcp-public-data--gnomad/release/3.0.1/coverage/genomes/gnomad.genomes.r3.0.1.coverage.ht/"
