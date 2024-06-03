@@ -13,29 +13,23 @@ GS = RemoteProvider(stay_on_remote=True)
 #splicesm_scores_genomes = GS.remote(config["splicesm_scores_genomes_path"])
 splicing_scores_exomes = GS.remote(config["gcp_rootdir"] + "hg38_gnomad_v4_exome_splicing_scores_27052024.bgz")
 splicing_scores_genomes = GS.remote(config["gcp_rootdir"] + "hg38_gnomad_v4_genome_splicing_scores_27052024.bgz")
+missense_scores_exomes = GS.remote(config["gcp_rootdir"] + "hg38_gnomad_v4.1.0_exome_missense_predictors.txt.bgz"
 
 ###############################################################################
 #                                 Output files                                #
 ###############################################################################
 
-# Exomes ######################################################################
-variants_w_splicesm_spliceai = GS.remote(
-    config["gcp_rootdir"] + "variants_splicing_04072024_exomes.tsv.bgz"
-)
-
-# Genomes #####################################################################
-variants_w_splicesm_spliceai_genomes = GS.remote(
-    config["gcp_rootdir"] + "variants_splicing_04072024_genomes.tsv.bgz"
-)
+variants_w_splicesm_spliceai = GS.remote(config["gcp_rootdir"] + "variants_w_splicing_04072024_exomes.tsv.bgz"
+variants_w_splicesm_spliceai_genomes = GS.remote(config["gcp_rootdir"] + "variants_w_splicing_04072024_genomes.tsv.bgz"
+variants_w_missense_exomes = GS.remote(config["gcp_rootdir"] + "variants_w_missense_04072024_exomes.tsv.bgz"
 
 ###############################################################################
-
 
 rule all:
     input:
         variants_w_splicesm_spliceai,
         variants_w_splicesm_spliceai_genomes,
-
+        variants_w_missense_exomes,
 
 ###############################################################################
 #                                    Exomes                                   #
@@ -91,7 +85,7 @@ rule annotate_exomes_w_SpliceSM_and_SpliceAI:
         # Index the variants for which scores are available to match
         # the keys of Hail tables
         splicesm = splicesm.key_by(
-            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh37"),
+            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh38"),
             alleles=[splicesm.ref, splicesm.alt],
         )
 
@@ -216,7 +210,7 @@ rule annotate_genomes_w_SpliceSM_and_SpliceAI:
         # Index the variants for which scores are available to match
         # the keys of Hail tables
         splicesm = splicesm.key_by(
-            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh37"),
+            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh38"),
             alleles=[splicesm.ref, splicesm.alt],
         )
 
@@ -286,4 +280,82 @@ rule annotate_genomes_w_SpliceSM_and_SpliceAI:
             "ssm_2amnsu",
             "absplice",
             "pangolin",
+        ).export(output[0])
+
+
+###############################################################################
+#                                    Missense                                   #
+###############################################################################
+
+
+rule annotate_exomes_w_missense:
+    output:
+        variants_w_missense_exomes,
+    run:
+        import hail as hl
+        from preprocessing import preprocessing
+
+        # Read the scores, converting "chrN" (hg38) to "N" (hg19)
+        splicesm = hl.import_table(
+            missense_scores_exomes,
+            #"gs://vccri-mikgud-uscentral1/gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz",
+            delimiter="\t",
+            missing="",
+            find_replace=("chr", ""),
+        )
+
+        # The first line (from the header) will be malformed - get rid of it
+        splicesm = splicesm.filter(splicesm.start != "start")
+
+        # Convert the types from "str" to integer/float
+        from hail.expr.functions import int32, float64
+
+        splicesm = splicesm.transmute(
+            cadd_phred=float64(splicesm.cadd_phred),
+            revel=float64(splicesm.revel),
+            sift=float64(splicesm.sift),
+            polyphen=float64(splicesm.polyphen),
+            start=int32(splicesm.start),
+        )
+
+        # Index the variants for which scores are available to match
+        # the keys of Hail tables
+        splicesm = splicesm.key_by(
+            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh38"),
+            alleles=[splicesm.ref, splicesm.alt],
+        )
+
+        # Load all variants from gnomAD exomes and perform QC and
+        # annotations
+        exomes = preprocessing(
+           config["exomes_ht_path"],
+            config["context_ht_path"],
+            config["mutation_rates_ht_path"],
+            config["coverage_exomes_ht_path"],
+            {"female": config["female_exomes"], "male": config["male_exomes"]},
+        )
+
+        splicesm = splicesm[exomes.key]
+        exomes = exomes.annotate(            
+            cadd_phred=splicesm.cadd_phred,
+            revel=splicesm.revel,
+            sift=splicesm.sift,
+            polyphen=splicesm.polyphen,
+        )
+
+        exomes = exomes.annotate(AC=exomes.freq[0].AC)
+        exomes=exomes.filter(exomes.worst_csq!="stop_gained")
+        exomes.select(
+            "context",
+            "ref",
+            "alt",
+            "methylation_level",
+            "mu",
+            "worst_csq",
+            "protein_coding",
+            "coverage",
+            "cadd_phred",
+            "revel",
+            "sift",
+            "polyphen",
         ).export(output[0])
