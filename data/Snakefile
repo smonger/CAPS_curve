@@ -11,21 +11,21 @@ GS = RemoteProvider(stay_on_remote=True)
 # List of variants annotated with different versions of SpliceSM and SpliceAI scores.
 #splicesm_scores = GS.remote(config["splicesm_scores_path"])
 #splicesm_scores_genomes = GS.remote(config["splicesm_scores_genomes_path"])
-#splicesm_scores = GS.remote(config["gcp_rootdir"] + "gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz")
-splicesm_scores_genomes = GS.remote(config["gcp_rootdir"] + "gnomad_genomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz")
+splicing_scores_exomes = GS.remote(config["gcp_rootdir"] + "hg38_gnomad_v4_exome_splicing_scores_27052024.bgz")
+splicing_scores_genomes = GS.remote(config["gcp_rootdir"] + "hg38_gnomad_v4_genome_splicing_scores_27052024.bgz")
 
 ###############################################################################
 #                                 Output files                                #
 ###############################################################################
 
 # Exomes ######################################################################
-#variants_w_splicesm_spliceai = GS.remote(
-#    config["gcp_rootdir"] + "variants_w_splicesm_spliceai.tsv.bgz"
-#)
+variants_w_splicesm_spliceai = GS.remote(
+    config["gcp_rootdir"] + "variants_splicing_04072024_exomes.tsv.bgz"
+)
 
 # Genomes #####################################################################
 variants_w_splicesm_spliceai_genomes = GS.remote(
-    config["gcp_rootdir"] + "variants_w_splicesm_spliceai_genomes.tsv.bgz"
+    config["gcp_rootdir"] + "variants_splicing_04072024_genomes.tsv.bgz"
 )
 
 ###############################################################################
@@ -33,6 +33,7 @@ variants_w_splicesm_spliceai_genomes = GS.remote(
 
 rule all:
     input:
+        variants_w_splicesm_spliceai,
         variants_w_splicesm_spliceai_genomes,
 
 
@@ -41,145 +42,125 @@ rule all:
 ###############################################################################
 
 
-#rule annotate_exomes_w_SpliceSM_and_SpliceAI:
-#    output:
-#        variants_w_splicesm_spliceai,
-#    run:
-#        import hail as hl
-#        from preprocessing import preprocessing
+rule annotate_exomes_w_SpliceSM_and_SpliceAI:
+    output:
+        variants_w_splicesm_spliceai,
+    run:
+        import hail as hl
+        from preprocessing import preprocessing
 
-#        # Read the scores, converting "chrN" (hg38) to "N" (hg19)
-#        splicesm = hl.import_table(
-#            "gs://vccri-mikgud-uscentral1/gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz",
-#            delimiter="\t",
-#            missing="",
-#            find_replace=("chr", ""),
-#        )
+        # Read the scores, converting "chrN" (hg38) to "N" (hg19)
+        splicesm = hl.import_table(
+            splicing_scores_exomes,
+            #"gs://vccri-mikgud-uscentral1/gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz",
+            delimiter="\t",
+            missing="",
+            find_replace=("chr", ""),
+        )
 
-#        # The first line (from the header) will be malformed - get rid of it
-#        splicesm = splicesm.filter(splicesm.start != "start")
+        # The first line (from the header) will be malformed - get rid of it
+        splicesm = splicesm.filter(splicesm.start != "start")
 
-#        # Convert the types from "str" to integer/float
-#        from hail.expr.functions import int32, float64
+        # Convert the types from "str" to integer/float
+        from hail.expr.functions import int32, float64
 
-#        splicesm = splicesm.transmute(
-#            sai_sum=float64(splicesm.sai_sum),
-#            sai_max=float64(splicesm.sai_max),
-#            sai_max_patch=float64(splicesm.sai_max_patch),
-#            sai_sum_patch=float64(splicesm.sai_sum_patch),
-#            sai_loss125=float64(splicesm.sai_loss125),
-#            sai_loss175=float64(splicesm.sai_loss175),
-#            ssm_1a=float64(splicesm.ssm_1a),
-#            ssm_1b=float64(splicesm.ssm_1b),
-#            ssm_1c=float64(splicesm.ssm_1c),
-#            ssm_1d=float64(splicesm.ssm_1d),
-#            ssm_1e=float64(splicesm.ssm_1e),
-#            ssm_1f=float64(splicesm.ssm_1f),
-#            ssm_1g=float64(splicesm.ssm_1g),
-#            ssm_1h=float64(splicesm.ssm_1h),
-#            ssm_1i=float64(splicesm.ssm_1i),
-#            ssm_1j=float64(splicesm.ssm_1j),
-#            ssm_2a=float64(splicesm.ssm_2a),
-#            ssm_2b=float64(splicesm.ssm_2b),
-#            ssm_2c=float64(splicesm.ssm_2c),
-#            ssm_2d=float64(splicesm.ssm_2d),
-#            ssm_2e=float64(splicesm.ssm_2e),
-#            ssm_2f=float64(splicesm.ssm_2f),
-#            ssm_2g=float64(splicesm.ssm_2g),
-#            ssm_2h=float64(splicesm.ssm_2h),
-#            ssm_2i=float64(splicesm.ssm_2i),
-#            ssm_2j=float64(splicesm.ssm_2j),
-#            absplice=float64(splicesm.absplice),
-#            start=int32(splicesm.start),
-#        )
+        splicesm = splicesm.transmute(
+            ds_ag=float64(splicesm.DS_AG),
+            ds_al=float64(splicesm.DS_AL),
+            ds_dg=float64(splicesm.DS_DG),
+            ds_dl=float64(splicesm.DS_DL),
+            sai_sum=float64(splicesm.sai_sum),
+            sai_max=float64(splicesm.sai_max),
+            sai_loss125=float64(splicesm.sai_loss125),
+            sai_loss150=float64(splicesm.sai_loss150),
+            sai_1xgb=float64(splicesm.sai_1xgb),
+            ssm_1e=float64(splicesm.ssm_1e),
+            ssm_1amne=float64(splicesm.ssm_1amne),
+            ssm_1amdi=float64(splicesm.ssm_1amdi),
+            ssm_1amnsu=float64(splicesm.ssm_1amnsu),
+            sai_2xgb=float64(splicesm.sai_2xgb),
+            ssm_2e=float64(splicesm.ssm_2e),
+            ssm_2amne=float64(splicesm.ssm_2amne),
+            ssm_2amdi=float64(splicesm.ssm_2amdi),
+            ssm_2amnsu=float64(splicesm.ssm_2amnsu),
+            absplice=float64(splicesm.absplice),
+            pangolin=float64(splicesm.pangolin),
+            start=int32(splicesm.start),
+        )
 
         # Index the variants for which scores are available to match
         # the keys of Hail tables
-#        splicesm = splicesm.key_by(
-#            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh37"),
-#            alleles=[splicesm.ref, splicesm.alt],
-#        )
+        splicesm = splicesm.key_by(
+            locus=hl.locus(splicesm.chr, splicesm.start, reference_genome="GRCh37"),
+            alleles=[splicesm.ref, splicesm.alt],
+        )
 
         # Load all variants from gnomAD exomes and perform QC and
         # annotations
-#        exomes = preprocessing(
-#           config["exomes_ht_path"],
-#            config["context_ht_path"],
-#            config["mutation_rates_ht_path"],
-#            config["coverage_exomes_ht_path"],
-#            {"female": config["female_exomes"], "male": config["male_exomes"]},
-#        )
+        exomes = preprocessing(
+           config["exomes_ht_path"],
+            config["context_ht_path"],
+            config["mutation_rates_ht_path"],
+            config["coverage_exomes_ht_path"],
+            {"female": config["female_exomes"], "male": config["male_exomes"]},
+        )
 
-#        splicesm = splicesm[exomes.key]
-#        exomes = exomes.annotate(
-#            sai_sum=splicesm.sai_sum,
-#            sai_max=splicesm.sai_max,
-#            sai_max_patch=splicesm.sai_max_patch,
-#            sai_sum_patch=splicesm.sai_sum_patch,
-#            sai_loss125=splicesm.sai_loss125,
-#            sai_loss175=splicesm.sai_loss175,
-#            ssm_1a=splicesm.ssm_1a,
-#            ssm_1b=splicesm.ssm_1b,
-#            ssm_1c=splicesm.ssm_1c,
-#            ssm_1d=splicesm.ssm_1d,
-#            ssm_1e=splicesm.ssm_1e,
-#            ssm_1f=splicesm.ssm_1f,
-#            ssm_1g=splicesm.ssm_1g,
-#            ssm_1h=splicesm.ssm_1h,
-#            ssm_1i=splicesm.ssm_1i,
-#            ssm_1j=splicesm.ssm_1j,
-#            ssm_2a=splicesm.ssm_2a,
-#            ssm_2b=splicesm.ssm_2b,
-#            ssm_2c=splicesm.ssm_2c,
-#            ssm_2d=splicesm.ssm_2d,
-#            ssm_2e=splicesm.ssm_2e,
-#            ssm_2f=splicesm.ssm_2f,
-#            ssm_2g=splicesm.ssm_2g,
-#            ssm_2h=splicesm.ssm_2h,
-#            ssm_2i=splicesm.ssm_2i,
-#            ssm_2j=splicesm.ssm_2j,
-#            absplice=splicesm.absplice,
-#        )
+        splicesm = splicesm[exomes.key]
+        exomes = exomes.annotate(            
+            ds_ag=splicesm.ds_ag,
+            ds_al=splicesm.ds_al,
+            ds_dg=splicesm.ds_dg,
+            ds_dl=splicesm.ds_dl,
+            sai_sum=splicesm.sai_sum,
+            sai_max=splicesm.sai_max,
+            sai_loss125=splicesm.sai_loss125,
+            sai_loss150=splicesm.sai_loss150,
+            ssm_1xgb=splicesm.ssm_1xgb,
+            ssm_1e=splicesm.ssm_1e,
+            ssm_1amne=splicesm.ssm_1amne,
+            ssm_1amdi=splicesm.ssm_1amdi,
+            ssm_1amnsu=splicesm.ssm_1amnsu,
+            ssm_2xgb=splicesm.ssm_2xgb,
+            ssm_2e=splicesm.ssm_2e,
+            ssm_2amne=splicesm.ssm_2amne,
+            ssm_2amdi=splicesm.ssm_2amdi,
+            ssm_2amnsu=splicesm.ssm_2amnsu,
+            absplice=splicesm.absplice,
+            pangolin=splicesm.pangolin,
+        )
 
-#        exomes = exomes.annotate(AC=exomes.freq[0].AC)
-#        exomes=exomes.filter(exomes.worst_csq!="stop_gained")
-#        exomes.select(
-#            "context",
-#            "ref",
-#            "alt",
-#            "methylation_level",
-#            "mu",
-#            "worst_csq",
-#            "protein_coding",
-#            "coverage",
-#          "sai_sum",
-#            "sai_max",
-#            "sai_max_patch",
-#            "sai_sum_patch",
-#            "sai_loss125",
-#            "sai_loss175",
-#            "ssm_1a",
-#            "ssm_1b",
-#            "ssm_1c",
-#            "ssm_1d",
-#            "ssm_1e",
-#            "ssm_1f",
-#            "ssm_1g",
-#            "ssm_1h",
-#            "ssm_1i",
-#            "ssm_1j",
-#            "ssm_2a",
-#            "ssm_2b",
-#            "ssm_2c",
-#            "ssm_2d",
-#            "ssm_2e",
-#            "ssm_2f",
-#            "ssm_2g",
-#            "ssm_2h",
-#            "ssm_2i",
-#            "ssm_2j",
-#            "absplice",
-#        ).export(output[0])
+        exomes = exomes.annotate(AC=exomes.freq[0].AC)
+        exomes=exomes.filter(exomes.worst_csq!="stop_gained")
+        exomes.select(
+            "context",
+            "ref",
+            "alt",
+            "methylation_level",
+            "mu",
+            "worst_csq",
+            "protein_coding",
+            "coverage",
+            "ds_ag",
+            "ds_al",
+            "ds_dg",
+            "ds_dl",
+            "sai_sum",
+            "sai_max",
+            "sai_loss125",
+            "sai_loss150",
+            "ssm_1xgb",
+            "ssm_1e",
+            "ssm_1amne",
+            "ssm_1amdi",
+            "ssm_1amnsu",
+            "ssm_2xgb",
+            "ssm_2e",
+            "ssm_2amne",
+            "ssm_2amdi",
+            "ssm_2amnsu",
+            "absplice",
+            "pangolin",
+        ).export(output[0])
 
 
 ###############################################################################
@@ -196,7 +177,7 @@ rule annotate_genomes_w_SpliceSM_and_SpliceAI:
 
         # Read the scores, converting "chrN" (hg38) to "N" (hg19)
         splicesm = hl.import_table(
-            "gs://vccri-mikgud-uscentral1/gnomad_exomes_v2111_sai_ssm_absplice_inner_merge.txt.bgz",
+            splicing_scores_genomes,
             delimiter="\t",
             missing="",
             find_replace=("chr", ""),
@@ -209,33 +190,26 @@ rule annotate_genomes_w_SpliceSM_and_SpliceAI:
         from hail.expr.functions import int32, float64
 
         splicesm = splicesm.transmute(
+            ds_ag=float64(splicesm.DS_AG),
+            ds_al=float64(splicesm.DS_AL),
+            ds_dg=float64(splicesm.DS_DG),
+            ds_dl=float64(splicesm.DS_DL),
             sai_sum=float64(splicesm.sai_sum),
             sai_max=float64(splicesm.sai_max),
-            sai_max_patch=float64(splicesm.sai_max_patch),
-            sai_sum_patch=float64(splicesm.sai_sum_patch),
             sai_loss125=float64(splicesm.sai_loss125),
-            sai_loss175=float64(splicesm.sai_loss175),
-            ssm_1a=float64(splicesm.ssm_1a),
-            ssm_1b=float64(splicesm.ssm_1b),
-            ssm_1c=float64(splicesm.ssm_1c),
-            ssm_1d=float64(splicesm.ssm_1d),
+            sai_loss150=float64(splicesm.sai_loss150),
+            sai_1xgb=float64(splicesm.sai_1xgb),
             ssm_1e=float64(splicesm.ssm_1e),
-            ssm_1f=float64(splicesm.ssm_1f),
-            ssm_1g=float64(splicesm.ssm_1g),
-            ssm_1h=float64(splicesm.ssm_1h),
-            ssm_1i=float64(splicesm.ssm_1i),
-            ssm_1j=float64(splicesm.ssm_1j),
-            ssm_2a=float64(splicesm.ssm_2a),
-            ssm_2b=float64(splicesm.ssm_2b),
-            ssm_2c=float64(splicesm.ssm_2c),
-            ssm_2d=float64(splicesm.ssm_2d),
+            ssm_1amne=float64(splicesm.ssm_1amne),
+            ssm_1amdi=float64(splicesm.ssm_1amdi),
+            ssm_1amnsu=float64(splicesm.ssm_1amnsu),
+            sai_2xgb=float64(splicesm.sai_2xgb),
             ssm_2e=float64(splicesm.ssm_2e),
-            ssm_2f=float64(splicesm.ssm_2f),
-            ssm_2g=float64(splicesm.ssm_2g),
-            ssm_2h=float64(splicesm.ssm_2h),
-            ssm_2i=float64(splicesm.ssm_2i),
-            ssm_2j=float64(splicesm.ssm_2j),
+            ssm_2amne=float64(splicesm.ssm_2amne),
+            ssm_2amdi=float64(splicesm.ssm_2amdi),
+            ssm_2amnsu=float64(splicesm.ssm_2amnsu),
             absplice=float64(splicesm.absplice),
+            pangolin=float64(splicesm.pangolin),
             start=int32(splicesm.start),
         )
 
@@ -258,33 +232,26 @@ rule annotate_genomes_w_SpliceSM_and_SpliceAI:
 
         splicesm = splicesm[genomes.key]
         genomes = genomes.annotate(
+            ds_ag=splicesm.ds_ag,
+            ds_al=splicesm.ds_al,
+            ds_dg=splicesm.ds_dg,
+            ds_dl=splicesm.ds_dl,
             sai_sum=splicesm.sai_sum,
             sai_max=splicesm.sai_max,
-            sai_max_patch=splicesm.sai_max_patch,
-            sai_sum_patch=splicesm.sai_sum_patch,
             sai_loss125=splicesm.sai_loss125,
-            sai_loss175=splicesm.sai_loss175,
-            ssm_1a=splicesm.ssm_1a,
-            ssm_1b=splicesm.ssm_1b,
-            ssm_1c=splicesm.ssm_1c,
-            ssm_1d=splicesm.ssm_1d,
+            sai_loss150=splicesm.sai_loss150,
+            ssm_1xgb=splicesm.ssm_1xgb,
             ssm_1e=splicesm.ssm_1e,
-            ssm_1f=splicesm.ssm_1f,
-            ssm_1g=splicesm.ssm_1g,
-            ssm_1h=splicesm.ssm_1h,
-            ssm_1i=splicesm.ssm_1i,
-            ssm_1j=splicesm.ssm_1j,
-            ssm_2a=splicesm.ssm_2a,
-            ssm_2b=splicesm.ssm_2b,
-            ssm_2c=splicesm.ssm_2c,
-            ssm_2d=splicesm.ssm_2d,
+            ssm_1amne=splicesm.ssm_1amne,
+            ssm_1amdi=splicesm.ssm_1amdi,
+            ssm_1amnsu=splicesm.ssm_1amnsu,
+            ssm_2xgb=splicesm.ssm_2xgb,
             ssm_2e=splicesm.ssm_2e,
-            ssm_2f=splicesm.ssm_2f,
-            ssm_2g=splicesm.ssm_2g,
-            ssm_2h=splicesm.ssm_2h,
-            ssm_2i=splicesm.ssm_2i,
-            ssm_2j=splicesm.ssm_2j,
+            ssm_2amne=splicesm.ssm_2amne,
+            ssm_2amdi=splicesm.ssm_2amdi,
+            ssm_2amnsu=splicesm.ssm_2amnsu,
             absplice=splicesm.absplice,
+            pangolin=splicesm.pangolin,
         )
 
         genomes = genomes.annotate(AC=genomes.freq[0].AC)
@@ -299,31 +266,24 @@ rule annotate_genomes_w_SpliceSM_and_SpliceAI:
             "protein_coding",
             "coverage",
             "AC",
+            "ds_ag",
+            "ds_al",
+            "ds_dg",
+            "ds_dl",
             "sai_sum",
             "sai_max",
-            "sai_max_patch",
-            "sai_sum_patch",
             "sai_loss125",
-            "sai_loss175",
-            "ssm_1a",
-            "ssm_1b",
-            "ssm_1c",
-            "ssm_1d",
+            "sai_loss150",
+            "ssm_1xgb",
             "ssm_1e",
-            "ssm_1f",
-            "ssm_1g",
-            "ssm_1h",
-            "ssm_1i",
-            "ssm_1j",
-            "ssm_2a",
-            "ssm_2b",
-            "ssm_2c",
-            "ssm_2d",
+            "ssm_1amne",
+            "ssm_1amdi",
+            "ssm_1amnsu",
+            "ssm_2xgb",
             "ssm_2e",
-            "ssm_2f",
-            "ssm_2g",
-            "ssm_2h",
-            "ssm_2i",
-            "ssm_2j",
+            "ssm_2amne",
+            "ssm_2amdi",
+            "ssm_2amnsu",
             "absplice",
+            "pangolin",
         ).export(output[0])
