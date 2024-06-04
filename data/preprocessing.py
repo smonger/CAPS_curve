@@ -30,7 +30,7 @@ def preprocessing(
 
     ht = hl.read_table(data_ht)
 
-    ht = ht.annotate(coverage=coverage_ht[ht.locus].median)
+    ht = ht.annotate(coverage=coverage_ht[ht.locus].median_approx)
 
     # Allele number (AN) adjustment. This retains only those variants,
     # in which the call was made in at least 80% (see "an_cutoff") of
