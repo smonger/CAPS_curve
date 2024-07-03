@@ -1,14 +1,14 @@
 # All variants (WES)
 exomes_ht_path: "gs://gcp-public-data--gnomad/release/4.1/ht/exomes/gnomad.exomes.v4.1.sites.ht"
 ### Not accurate, could not find this info, temporarily assuming equal split
-male_exomes: 365474
-female_exomes: 365473
+male_exomes: 363624
+female_exomes: 367323
 
 # All variants (WGS)
 genomes_ht_path: "gs://gcp-public-data--gnomad/release/4.1/ht/genomes/gnomad.genomes.v4.1.sites.ht/"
 ### Not accurate, could not find this info, temporarily assuming equal split
-male_genomes: 38108
-female_genomes: 38107
+male_genomes: 37273
+female_genomes: 38942
 
 # Mutability table. Contains 104 entries: 32 context sequences
 # (4^3 divided by 2 because of complementarity), times
