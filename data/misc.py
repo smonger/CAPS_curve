@@ -5,6 +5,7 @@ See https://github.com/macarthur-lab/gnomad_lof.
 
 
 import hail as hl
+from hail.expr.functions import int32, float64
 from typing import Union
 from constants import CSQ_ORDER
 
