@@ -131,7 +131,7 @@ def prepare_ht(ht, trimer: bool = False, annotate_coverage: bool = True):
         ht = annotate_variant_types(collapse_strand(ht), not trimer)
     annotation = {
         "methylation_level": hl.case()
-        .when(ht.cpg & (float64(ht.methyl_mean) > 0.6), 2)
+        .when(ht.cpg & (float64(ht.methylation) > 0.6), 2)
         .when(ht.cpg & (float64(ht.methylation) > 0.2), 1)
         .default(0)
     }
