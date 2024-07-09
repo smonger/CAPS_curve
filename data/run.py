@@ -18,10 +18,10 @@ xx_genome_total = 38942
 gnomad_gs_path = Path("gs://gcp-public-data--gnomad")
 mikgud_gs_path = Path("gs://vccri-mikgud-uscentral1")
 
-exomes_ht_path: "gs://gcp-public-data--gnomad/release/4.1/ht/exomes/gnomad.exomes.v4.1.sites.ht"
-genomes_ht_path: "gs://gcp-public-data--gnomad/release/4.1/ht/genomes/gnomad.genomes.v4.1.sites.ht/"
+exomes_ht_path = gnomad_gs_path / "release/4.1/ht/exomes/gnomad.exomes.v4.1.sites.ht"
+genomes_ht_path = gnomad_gs_path / "release/4.1/ht/genomes/gnomad.genomes.v4.1.sites.ht/"
 mutation_rates_ht_path = gnomad_gs_path / "papers/2019-flagship-lof/v1.0/model/mutation_rate_methylation_bins.ht"
-context_ht_path: gnomad_gs_path / "resources/context/grch38_context_vep_annotated.v105.ht"
+context_ht_path = gnomad_gs_path / "resources/context/grch38_context_vep_annotated.v105.ht"
 coverage_exomes_ht_path = gnomad_gs_path / "release/4.0/coverage/exomes/gnomad.exomes.v4.0.coverage.ht"
 coverage_genomes_ht_path = gnomad_gs_path / "release/3.0.1/coverage/genomes/gnomad.genomes.r3.0.1.coverage.ht/"
 lof_metrics_by_gene = "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz"
@@ -57,7 +57,6 @@ gnomad = preprocessing(ht_path, context_ht_path, mutation_rates_ht_path, coverag
 if create_by_csq_file:
   gnomad.groupby("context", "ref", "alt", "mu", "methylation_level", "worst_csq", "coverage").aggregate(
     variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
-  )
 
 data = hl.import_table(input_file, delimiter="\t", missing="")
 data = data.filter(data.start != "start")
