@@ -15,23 +15,23 @@ xx_exome_total = 367323
 xy_genome_total = 37237
 xx_genome_total = 38942
 
-gnomad_gs_path = Path("gs://gcp-public-data--gnomad")
-mikgud_gs_path = Path("gs://vccri-mikgud-uscentral1")
+gnomad_gs_path = "gs://gcp-public-data--gnomad/"
+mikgud_gs_path = "gs://vccri-mikgud-uscentral1/"
 
-exomes_ht_path = gnomad_gs_path / "release/4.1/ht/exomes/gnomad.exomes.v4.1.sites.ht"
-genomes_ht_path = gnomad_gs_path / "release/4.1/ht/genomes/gnomad.genomes.v4.1.sites.ht/"
-mutation_rates_ht_path = gnomad_gs_path / "papers/2019-flagship-lof/v1.0/model/mutation_rate_methylation_bins.ht"
-context_ht_path = gnomad_gs_path / "resources/context/grch38_context_vep_annotated.v105.ht"
-coverage_exomes_ht_path = gnomad_gs_path / "release/4.0/coverage/exomes/gnomad.exomes.v4.0.coverage.ht"
-coverage_genomes_ht_path = gnomad_gs_path / "release/3.0.1/coverage/genomes/gnomad.genomes.r3.0.1.coverage.ht/"
+exomes_ht_path = gnomad_gs_path + "release/4.1/ht/exomes/gnomad.exomes.v4.1.sites.ht"
+genomes_ht_path = gnomad_gs_path + "release/4.1/ht/genomes/gnomad.genomes.v4.1.sites.ht/"
+mutation_rates_ht_path = gnomad_gs_path + "papers/2019-flagship-lof/v1.0/model/mutation_rate_methylation_bins.ht"
+context_ht_path = gnomad_gs_path + "resources/context/grch38_context_vep_annotated.v105.ht"
+coverage_exomes_ht_path = gnomad_gs_path + "release/4.0/coverage/exomes/gnomad.exomes.v4.0.coverage.ht"
+coverage_genomes_ht_path = gnomad_gs_path + "release/3.0.1/coverage/genomes/gnomad.genomes.r3.0.1.coverage.ht/"
 lof_metrics_by_gene = "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz"
 
-input_splicing_exomes = mikgud_gs_path / "hg38_gnomad_v4_exome_splicing_scores_27052024.bgz"
-input_splicing_genomes = mikgud_gs_path / "hg38_gnomad_v4_genome_splicing_scores_27052024.bgz"
-output_splicing_exomes = mikgud_gs_path / "hg38_gnomad_v4_exome_splicing_scores_27052024_data_output.bgz"
-output_splicing_genomes = mikgud_gs_path / "hg38_gnomad_v4_genome_splicing_scores_27052024_data_output.bgz"
-by_csq_file_genome = mikgud_gs_path / "gnomad_v4.1.0_genomes_by_csq.tsv"
-by_csq_file_exome = mikgud_gs_path / "gnomad_v4.1.0_exomes_by_csq.tsv"
+input_splicing_exomes = mikgud_gs_path + "hg38_gnomad_v4_exome_splicing_scores_27052024.bgz"
+input_splicing_genomes = mikgud_gs_path + "hg38_gnomad_v4_genome_splicing_scores_27052024.bgz"
+output_splicing_exomes = mikgud_gs_path + "hg38_gnomad_v4_exome_splicing_scores_27052024_data_output.bgz"
+output_splicing_genomes = mikgud_gs_path + "hg38_gnomad_v4_genome_splicing_scores_27052024_data_output.bgz"
+by_csq_file_genome = mikgud_gs_path + "gnomad_v4.1.0_genomes_by_csq.tsv"
+by_csq_file_exome = mikgud_gs_path + "gnomad_v4.1.0_exomes_by_csq.tsv"
 
 if exome_or_genome == "genome":
   ht_path = genomes_ht_path
