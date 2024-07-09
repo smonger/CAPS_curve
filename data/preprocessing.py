@@ -57,7 +57,7 @@ def preprocessing(
     # (ref allele in the middle plus two bases to the left and to the right)
     # and other information.
     ht = prepare_ht(
-        ht.annotate(context=context.context, methylation=context.methylation),
+        ht.annotate(context=context.context, methylation=context.methyl_mean),
         trimer=True,
         annotate_coverage=False,
     )
