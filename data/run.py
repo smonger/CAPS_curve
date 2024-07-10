@@ -4,7 +4,7 @@ from preprocessing import preprocessing
 from hail.expr.functions import int32, float64
 
 #### Specify Exome or Genome here ####
-exome_or_genome = "genome"
+exome_or_genome = "exome"
 
 #### Specify whether t generate by_csq files. Only required when refitting CAPS
 create_by_csq_file = False
@@ -130,12 +130,12 @@ gnomad.select(
             "sai_max",
             "sai_loss125",
             "sai_loss150",
-            "ssm_1xgb",
+            "sai_1xgb",
             "ssm_1e",
             "ssm_1amne",
             "ssm_1amdi",
             "ssm_1amnsu",
-            "ssm_2xgb",
+            "sai_2xgb",
             "ssm_2e",
             "ssm_2amne",
             "ssm_2amdi",
