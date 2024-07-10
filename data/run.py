@@ -1,4 +1,3 @@
-from pathlib import Path
 import hail as hl
 from preprocessing import preprocessing
 from hail.expr.functions import int32, float64
@@ -22,7 +21,7 @@ exomes_ht_path = gnomad_gs_path + "release/4.1/ht/exomes/gnomad.exomes.v4.1.site
 genomes_ht_path = gnomad_gs_path + "release/4.1/ht/genomes/gnomad.genomes.v4.1.sites.ht/"
 mutation_rates_ht_path = gnomad_gs_path + "papers/2019-flagship-lof/v1.0/model/mutation_rate_methylation_bins.ht"
 context_ht_path = gnomad_gs_path + "resources/context/grch38_context_vep_annotated.v105.ht"
-coverage_exomes_ht_path = gnomad_gs_path + "release/4.0/coverage/exomes/gnomad.exomes.v4.0.coverage.ht"
+coverage_exomes_ht_path = gnomad_gs_path + "release/4.0/coverage/exomes/gnomad.exomes.v4.0.coverage.ht/"
 coverage_genomes_ht_path = gnomad_gs_path + "release/3.0.1/coverage/genomes/gnomad.genomes.r3.0.1.coverage.ht/"
 lof_metrics_by_gene = "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz"
 
