@@ -57,30 +57,30 @@ if create_by_csq_file:
   gnomad.groupby("context", "ref", "alt", "mu", "methylation_level", "worst_csq", "coverage").aggregate(
     variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
 
-score_types = {'DS_AG': hl.tfloat64, 'DS_AL': hl.tfloat64, 'DS_DG': hl.tfloat64, 'DS_DL': hl.tfloat64, 'sai_sum': hl.tfloat64, 'sai_max': hl.tfloat64,
+score_types = {'ds_ag': hl.tfloat64, 'ds_al': hl.tfloat64, 'ds_dg': hl.tfloat64, 'ds_dl': hl.tfloat64, 'sai_sum': hl.tfloat64, 'sai_max': hl.tfloat64,
                'sai_loss125': hl.tfloat64, 'sai_loss150': hl.tfloat64, 'sai_1xgb': hl.tfloat64, 'ssm_1e': hl.tfloat64, 'ssm_1amne': hl.tfloat64, 'ssm_1amdi': hl.tfloat64,
-               'ssm_1amnsu': hl.tfloat64, 'sai_2xgb': hl.tfloat64, 'ssm_2e': hl.tfloat64, 'ssm_2amne': hl.tfloat64,  'ssm_2amdi': hl.tfloat64, 'ssm_2amnsu': hl.tfloat64}
+               'ssm_1amnsu': hl.tfloat64, 'sai_2xgb': hl.tfloat64, 'ssm_2e': hl.tfloat64, 'ssm_2amne': hl.tfloat64,  'ssm_2amdi': hl.tfloat64, 'ssm_2amnsu': hl.tfloat64, 'start': hl.tint32}
 
 data = hl.import_table(input_file, delimiter="\t", missing="", types=score_types)
 
-data = data.transmute(ds_ag=float64(data.ds_ag),
-                      ds_al=float64(data.ds_al),
-                      ds_dg=float64(data.ds_dg),
-                      ds_dl=float64(data.ds_dl),
-                      sai_sum=float64(data.sai_sum),
-                      sai_max=float64(data.sai_max),
-                      sai_loss125=float64(data.sai_loss125),
-                      sai_loss150=float64(data.sai_loss150),
-                      sai_1xgb=float64(data.sai_1xgb),
-                      sai_2xgb=float64(data.sai_2xgb),
-                      ssm_1e=float64(data.ssm_1e),
-                      ssm_1amne=float64(data.ssm_1amne),
-                      ssm_1amdi=float64(data.ssm_1amdi),
-                      ssm_1amnsu=float64(data.ssm_1amnsu),
-                      ssm_2e=float64(data.ssm_2e),
-                      ssm_2amne=float64(data.ssm_2amne),
-                      ssm_2amdi=float64(data.ssm_2amdi),
-                      ssm_2amnsu=float64(data.ssm_2amnsu))
+#data = data.transmute(ds_ag=float64(data.ds_ag),
+#                      ds_al=float64(data.ds_al),
+#                      ds_dg=float64(data.ds_dg),
+#                      ds_dl=float64(data.ds_dl),
+#                      sai_sum=float64(data.sai_sum),
+#                      sai_max=float64(data.sai_max),
+#                      sai_loss125=float64(data.sai_loss125),
+#                      sai_loss150=float64(data.sai_loss150),
+#                      sai_1xgb=float64(data.sai_1xgb),
+#                      sai_2xgb=float64(data.sai_2xgb),
+#                      ssm_1e=float64(data.ssm_1e),
+#                      ssm_1amne=float64(data.ssm_1amne),
+#                      ssm_1amdi=float64(data.ssm_1amdi),
+#                      ssm_1amnsu=float64(data.ssm_1amnsu),
+#                      ssm_2e=float64(data.ssm_2e),
+#                      ssm_2amne=float64(data.ssm_2amne),
+#                      ssm_2amdi=float64(data.ssm_2amdi),
+#                      ssm_2amnsu=float64(data.ssm_2amnsu))
 
 data = data.filter(data.start != "start")
 
