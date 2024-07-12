@@ -57,9 +57,9 @@ if create_by_csq_file:
   gnomad.groupby("context", "ref", "alt", "mu", "methylation_level", "worst_csq", "coverage").aggregate(
     variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
 
-score_types = {'DS_AG': hl.float64, 'DS_AL': hl.float64, 'DS_DG': hl.float64, 'DS_DL': hl.float64, 'sai_sum': hl.float64, 'sai_max': hl.float64,
-               'sai_loss125': hl.float64, 'sai_loss150': hl.float64, 'sai_1xgb': hl.float64, 'ssm_1e': hl.float64, 'ssm_1amne': hl.float64, 'ssm_1amdi': hl.float64,
-               'ssm_1amnsu': hl.float64, 'sai_2xgb': hl.float64, 'ssm_2e': hl.float64, 'ssm_2amne': hl.float64,  'ssm_2amdi': hl.float64, 'ssm_2amnsu': hl.float64}
+score_types = {'DS_AG': hl.tfloat64, 'DS_AL': hl.tfloat64, 'DS_DG': hl.tfloat64, 'DS_DL': hl.tfloat64, 'sai_sum': hl.tfloat64, 'sai_max': hl.tfloat64,
+               'sai_loss125': hl.tfloat64, 'sai_loss150': hl.tfloat64, 'sai_1xgb': hl.tfloat64, 'ssm_1e': hl.tfloat64, 'ssm_1amne': hl.tfloat64, 'ssm_1amdi': hl.tfloat64,
+               'ssm_1amnsu': hl.tfloat64, 'sai_2xgb': hl.tfloat64, 'ssm_2e': hl.tfloat64, 'ssm_2amne': hl.tfloat64,  'ssm_2amdi': hl.tfloat64, 'ssm_2amnsu': hl.tfloat64}
 
 data = hl.import_table(input_file, delimiter="\t", missing="", types=score_types)
 data = data.filter(data.start != "start")
