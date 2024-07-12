@@ -81,7 +81,7 @@ data = data.transmute(ds_ag=float64(data.ds_ag),
                       ssm_2e=float64(data.ssm_2e),
                       ssm_2amne=float64(data.ssm_2amne),
                       ssm_2amdi=float64(data.ssm_2amdi),
-                      ssm_2amnsu=float64(data.ssm_2amnsu))
+                      ssm_2amnsu=float64(data.ssm_2amnsu),
                       start=int32(data.start))
 
 
