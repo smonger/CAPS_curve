@@ -57,31 +57,12 @@ if create_by_csq_file:
   gnomad.groupby("context", "ref", "alt", "mu", "methylation_level", "worst_csq", "coverage").aggregate(
     variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
 
-data = hl.import_table(input_file, delimiter="\t", missing="")
-data = data.filter(data.start != "start")
+score_types = {'DS_AG': hl.float64, 'DS_AL': hl.float64, 'DS_DG': hl.float64, 'DS_DL': hl.float64, 'sai_sum': hl.float64, 'sai_max': hl.float64,
+               'sai_loss125': hl.float64, 'sai_loss150': hl.float64, 'sai_1xgb': hl.float64, 'ssm_1e': hl.float64, 'ssm_1amne': hl.float64, 'ssm_1amdi': hl.float64,
+               'ssm_1amnsu': hl.float64, 'sai_2xgb': hl.float64, 'ssm_2e': hl.float64, 'ssm_2amne': hl.float64,  'ssm_2amdi': hl.float64, 'ssm_2amnsu': hl.float64}
 
-data = data.transmute(
-            ds_ag=float64(data.DS_AG),
-            ds_al=float64(data.DS_AL),
-            ds_dg=float64(data.DS_DG),
-            ds_dl=float64(data.DS_DL),
-            sai_sum=float64(data.sai_sum),
-            sai_max=float64(data.sai_max),
-            sai_loss125=float64(data.sai_loss125),
-            sai_loss150=float64(data.sai_loss150),
-            sai_1xgb=float64(data.sai_1xgb),
-            ssm_1e=float64(data.ssm_1e),
-            ssm_1amne=float64(data.ssm_1amne),
-            ssm_1amdi=float64(data.ssm_1amdi),
-            ssm_1amnsu=float64(data.ssm_1amnsu),
-            sai_2xgb=float64(data.sai_2xgb),
-            ssm_2e=float64(data.ssm_2e),
-            ssm_2amne=float64(data.ssm_2amne),
-            ssm_2amdi=float64(data.ssm_2amdi),
-            ssm_2amnsu=float64(data.ssm_2amnsu),
-            absplice=float64(data.absplice),
-            pangolin=float64(data.pangolin),
-            start=int32(data.start))
+data = hl.import_table(input_file, delimiter="\t", missing="", types=score_types)
+data = data.filter(data.start != "start")
 
 # Index the variants for which scores are available to match the keys of Hail tables
 data = data.key_by(locus=hl.locus(data.chr, data.start, reference_genome="GRCh38"), alleles=[data.ref, data.alt])
@@ -105,9 +86,7 @@ gnomad = gnomad.annotate(
             ssm_2e=data.ssm_2e,
             ssm_2amne=data.ssm_2amne,
             ssm_2amdi=data.ssm_2amdi,
-            ssm_2amnsu=data.ssm_2amnsu,
-            absplice=data.absplice,
-            pangolin=data.pangolin)
+            ssm_2amnsu=data.ssm_2amnsu)
 
 gnomad = gnomad.annotate(AC=gnomad.freq[0].AC)
 gnomad = gnomad.filter(gnomad.worst_csq!="stop_gained")
@@ -138,6 +117,4 @@ gnomad.select(
             "ssm_2e",
             "ssm_2amne",
             "ssm_2amdi",
-            "ssm_2amnsu",
-            "absplice",
-            "pangolin").export(output_file)
+            "ssm_2amnsu").export(output_file)
