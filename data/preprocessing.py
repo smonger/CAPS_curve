@@ -11,7 +11,6 @@ from misc import (
 def preprocessing(
     data_ht,
     context_ht,
-    mutation_rates_ht,
     coverage_ht,
     sex_split,
 ):
@@ -19,13 +18,11 @@ def preprocessing(
 
     data_ht -- WES or WGS variants (Hail table)
     context_ht -- context (Hail table)
-    mutation_rates_ht -- mutability/mutation rates (Hail table)
     coverage_ht -- coverage (Hail table)
     sex_split -- how many males, how many females
     """
 
     context = hl.read_table(context_ht)
-    mutation_rates = hl.read_table(mutation_rates_ht)
     coverage_ht = hl.read_table(coverage_ht)
 
     ht = hl.read_table(data_ht)
