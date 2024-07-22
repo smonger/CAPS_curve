@@ -62,15 +62,15 @@ def preprocessing(
         annotate_coverage=False,
     )
 
-    ht = ht.annotate(
-        mu=mutation_rates[
-            hl.struct(
-                context=ht.context,
-                ref=ht.ref,
-                alt=ht.alt,
-                methylation_level=ht.methylation_level,
-            )
-        ].mu_snp
-    )
+    #ht = ht.annotate(
+    #    mu=mutation_rates[
+    #        hl.struct(
+    #            context=ht.context,
+    #            ref=ht.ref,
+    #            alt=ht.alt,
+    #            methylation_level=ht.methylation_level,
+    #        )
+    #    ].mu_snp
+    #)
 
     return ht
