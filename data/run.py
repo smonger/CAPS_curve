@@ -53,7 +53,7 @@ elif exome_or_genome == "exome":
 gnomad = preprocessing(ht_path, context_ht_path, coverage_ht_path, {"female": xx_total, "male": xy_total})
 
 if create_by_csq_file:
-  gnomad.groupby("context", "ref", "alt", "methylation_level", "worst_csq", "coverage").aggregate(
+  gnomad.group_by("context", "ref", "alt", "methylation_level", "worst_csq", "coverage").aggregate(
     variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
 
 score_types = {'ds_ag': hl.tfloat64, 'ds_al': hl.tfloat64, 'ds_dg': hl.tfloat64, 'ds_dl': hl.tfloat64, 'sai_sum': hl.tfloat64, 'sai_max': hl.tfloat64,
