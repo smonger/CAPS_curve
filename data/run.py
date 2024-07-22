@@ -19,7 +19,6 @@ mikgud_gs_path = "gs://vccri-mikgud-uscentral1/"
 
 exomes_ht_path = gnomad_gs_path + "release/4.1/ht/exomes/gnomad.exomes.v4.1.sites.ht"
 genomes_ht_path = gnomad_gs_path + "release/4.1/ht/genomes/gnomad.genomes.v4.1.sites.ht/"
-mutation_rates_ht_path = gnomad_gs_path + "papers/2019-flagship-lof/v1.0/model/mutation_rate_methylation_bins.ht"
 context_ht_path = gnomad_gs_path + "resources/context/grch38_context_vep_annotated.v105.ht"
 coverage_exomes_ht_path = gnomad_gs_path + "release/4.0/coverage/exomes/gnomad.exomes.v4.0.coverage.ht/"
 coverage_genomes_ht_path = gnomad_gs_path + "release/3.0.1/coverage/genomes/gnomad.genomes.r3.0.1.coverage.ht/"
@@ -51,10 +50,10 @@ elif exome_or_genome == "exome":
 
 #### RUN ####
 
-gnomad = preprocessing(ht_path, context_ht_path, mutation_rates_ht_path, coverage_ht_path, {"female": xx_total, "male": xy_total})
+gnomad = preprocessing(ht_path, context_ht_path, coverage_ht_path, {"female": xx_total, "male": xy_total})
 
 if create_by_csq_file:
-  gnomad.groupby("context", "ref", "alt", "mu", "methylation_level", "worst_csq", "coverage").aggregate(
+  gnomad.groupby("context", "ref", "alt", "methylation_level", "worst_csq", "coverage").aggregate(
     variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
 
 score_types = {'ds_ag': hl.tfloat64, 'ds_al': hl.tfloat64, 'ds_dg': hl.tfloat64, 'ds_dl': hl.tfloat64, 'sai_sum': hl.tfloat64, 'sai_max': hl.tfloat64,
@@ -116,7 +115,6 @@ gnomad.select(
             "ref",
             "alt",
             "methylation_level",
-            "mu",
             "worst_csq",
             "protein_coding",
             "coverage",
