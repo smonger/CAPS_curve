@@ -36,8 +36,8 @@ by_csq_file_exome = mikgud_gs_path + "gnomad_v4.1.0_exomes_by_csq.tsv"
 
 ht_path = exomes_ht_path
 coverage_ht_path = coverage_exomes_ht_path
-input_file = input_splicing_exomes
-output_file = output_splicing_exomes
+input_file = input_missense_exomes
+output_file = output_missense_exomes
 xy_total = xy_exome_total
 xx_total = xx_exome_total
 by_csq_file = by_csq_file_exome
