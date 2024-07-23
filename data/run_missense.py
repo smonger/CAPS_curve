@@ -27,27 +27,20 @@ lof_metrics_by_gene = "https://storage.googleapis.com/gcp-public-data--gnomad/re
 
 input_splicing_exomes = mikgud_gs_path + "hg38_gnomad_v4_exome_splicing_scores_27052024.bgz"
 input_splicing_genomes = mikgud_gs_path + "hg38_gnomad_v4_genome_splicing_scores_27052024.bgz"
+input_missense_exomes = mikgud_gs_path + "hg38_gnomad_v4.1.0_exome_missense_predictors_19072024.txt.bgz"
 output_splicing_exomes = mikgud_gs_path + "hg38_gnomad_v4_exome_splicing_scores_27052024_data_output.bgz"
 output_splicing_genomes = mikgud_gs_path + "hg38_gnomad_v4_genome_splicing_scores_27052024_data_output.bgz"
+output_missense_exomes = mikgud_gs_path + "hg38_gnomad_v4.1.0_exome_missense_predictors_19072024_data_output.txt.bgz"
 by_csq_file_genome = mikgud_gs_path + "gnomad_v4.1.0_genomes_by_csq.tsv"
 by_csq_file_exome = mikgud_gs_path + "gnomad_v4.1.0_exomes_by_csq.tsv"
 
-if exome_or_genome == "genome":
-  ht_path = genomes_ht_path
-  coverage_ht_path = coverage_genomes_ht_path
-  input_file = input_splicing_genomes
-  output_file = output_splicing_genomes
-  xy_total = xy_genome_total
-  xx_total = xx_genome_total
-  by_csq_file = by_csq_file_genome
-elif exome_or_genome == "exome":
-  ht_path = exomes_ht_path
-  coverage_ht_path = coverage_exomes_ht_path
-  input_file = input_splicing_exomes
-  output_file = output_splicing_exomes
-  xy_total = xy_exome_total
-  xx_total = xx_exome_total
-  by_csq_file = by_csq_file_exome
+ht_path = exomes_ht_path
+coverage_ht_path = coverage_exomes_ht_path
+input_file = input_splicing_exomes
+output_file = output_splicing_exomes
+xy_total = xy_exome_total
+xx_total = xx_exome_total
+by_csq_file = by_csq_file_exome
 
 #### RUN ####
 
