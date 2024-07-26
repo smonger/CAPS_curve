@@ -35,6 +35,10 @@ f1 = mikgud_gs_path + "f1.ht"
 f2 = mikgud_gs_path + "f2.ht"
 f3 = mikgud_gs_path + "f3.ht"
 f4 = mikgud_gs_path + "f4.ht"
+f5 = mikgud_gs_path + "f5.ht"
+f6 = mikgud_gs_path + "f6.ht"
+f7 = mikgud_gs_path + "f7.ht"
+f8 = mikgud_gs_path + "f8.ht"
 
 if exome_or_genome == "genome":
   ht_path = genomes_ht_path
@@ -145,3 +149,67 @@ gnomad.write(f3)
 
 gnomad = gnomad.filter(gnomad.all(lambda field: hl.is_defined(gnomad[field]), gnomad.row))
 gnomad.write(f4)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Missense
+gnomad = preprocessing(ht_path, context_ht_path, coverage_ht_path, {"female": xx_total, "male": xy_total})
+
+if create_by_csq_file:
+  gnomad.group_by("context", "ref", "alt", "methylation_level", "worst_csq", "coverage").aggregate(
+    variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
+
+score_types = {'ds_ag': hl.tfloat64, 'ds_al': hl.tfloat64, 'ds_dg': hl.tfloat64, 'ds_dl': hl.tfloat64, 'sai_sum': hl.tfloat64, 'sai_max': hl.tfloat64,
+               'sai_loss125': hl.tfloat64, 'sai_loss150': hl.tfloat64, 'sai_1xgb': hl.tfloat64, 'ssm_1e': hl.tfloat64, 'ssm_1amne': hl.tfloat64, 'ssm_1amdi': hl.tfloat64,
+               'ssm_1amnsu': hl.tfloat64, 'sai_2xgb': hl.tfloat64, 'ssm_2e': hl.tfloat64, 'ssm_2amne': hl.tfloat64,  'ssm_2amdi': hl.tfloat64, 'ssm_2amnsu': hl.tfloat64, 'start': hl.tint32}
+
+data = hl.import_table(input_file, delimiter="\t", missing="")#, types=score_types)
+data = data.filter(data.start != "start")
+
+data = data.transmute(alphamissense=float64(data.alphamissense),
+                      revel=float64(data.revel),
+                      primateai3d=float64(data.primateai3d),
+                      start=int32(data.start))
+data.write(f5)
+# Index the variants for which scores are available to match the keys of Hail tables
+data = data.key_by(locus=hl.locus(data.chr, data.start, reference_genome="GRCh38"), alleles=[data.ref, data.alt])
+data = data[gnomad.key]
+data.write(f6)
+
+gnomad = gnomad.annotate(            
+            revel=data.revel,
+            alphamissense=data.alphamissense,
+            primateai3d=data.primateai3d)
+
+gnomad = gnomad.annotate(AC=gnomad.freq[0].AC)
+gnomad = gnomad.filter(gnomad.worst_csq!="stop_gained")
+gnomad = gnomad.select(
+            "context",
+            "ref",
+            "alt",
+            "methylation_level",
+            "worst_csq",
+            "protein_coding",
+            "coverage",
+            "AC",
+            "revel",
+            "alphamissense",
+            "primateai3d")#.export(output_file)
+gnomad.write(f7)
+
+gnomad = gnomad.filter(gnomad.all(lambda field: hl.is_defined(gnomad[field]), gnomad.row))
+gnomad.write(f8)
