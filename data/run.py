@@ -110,7 +110,7 @@ gnomad = gnomad.annotate(
 
 gnomad = gnomad.annotate(AC=gnomad.freq[0].AC)
 gnomad = gnomad.filter(gnomad.worst_csq!="stop_gained")
-gnomad.select(
+gnomad = gnomad.select(
             "context",
             "ref",
             "alt",
@@ -136,4 +136,10 @@ gnomad.select(
             "ssm_2e",
             "ssm_2amne",
             "ssm_2amdi",
-            "ssm_2amnsu").export(output_file)
+            "ssm_2amnsu")
+
+# Filter rows where any field is missing
+fields = [gnomad[field] for field in gnomad.row]
+gnomad = gnomad.filter(hl.all([hl.is_defined(field) for field in fields]))
+
+gnomad.export(output_file)
