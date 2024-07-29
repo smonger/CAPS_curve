@@ -31,15 +31,6 @@ output_splicing_genomes = mikgud_gs_path + "hg38_gnomad_v4_genome_splicing_score
 by_csq_file_genome = mikgud_gs_path + "gnomad_v4.1.0_genomes_by_csq.tsv"
 by_csq_file_exome = mikgud_gs_path + "gnomad_v4.1.0_exomes_by_csq.tsv"
 
-f1 = mikgud_gs_path + "f1.ht"
-f2 = mikgud_gs_path + "f2.ht"
-f3 = mikgud_gs_path + "f3.ht"
-f4 = mikgud_gs_path + "f4.ht"
-f5 = mikgud_gs_path + "f5.ht"
-f6 = mikgud_gs_path + "f6.ht"
-f7 = mikgud_gs_path + "f7.ht"
-f8 = mikgud_gs_path + "f8.ht"
-
 if exome_or_genome == "genome":
   ht_path = genomes_ht_path
   coverage_ht_path = coverage_genomes_ht_path
@@ -59,157 +50,85 @@ elif exome_or_genome == "exome":
 
 #### RUN ####
 
-gnomad = preprocessing(ht_path, context_ht_path, coverage_ht_path, {"female": xx_total, "male": xy_total})
+#gnomad = preprocessing(ht_path, context_ht_path, coverage_ht_path, {"female": xx_total, "male": xy_total})
 
-if create_by_csq_file:
-  gnomad.group_by("context", "ref", "alt", "methylation_level", "worst_csq", "coverage").aggregate(
-    variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
+from misc import (
+    get_an_adj_criteria,
+    prepare_ht,
+    filter_vep_to_canonical_transcripts,
+    get_worst_consequence_with_non_coding,
+)
 
-score_types = {'ds_ag': hl.tfloat64, 'ds_al': hl.tfloat64, 'ds_dg': hl.tfloat64, 'ds_dl': hl.tfloat64, 'sai_sum': hl.tfloat64, 'sai_max': hl.tfloat64,
-               'sai_loss125': hl.tfloat64, 'sai_loss150': hl.tfloat64, 'sai_1xgb': hl.tfloat64, 'ssm_1e': hl.tfloat64, 'ssm_1amne': hl.tfloat64, 'ssm_1amdi': hl.tfloat64,
-               'ssm_1amnsu': hl.tfloat64, 'sai_2xgb': hl.tfloat64, 'ssm_2e': hl.tfloat64, 'ssm_2amne': hl.tfloat64,  'ssm_2amdi': hl.tfloat64, 'ssm_2amnsu': hl.tfloat64, 'start': hl.tint32}
 
-data = hl.import_table(input_file, delimiter="\t", missing="")#, types=score_types)
-data = data.filter(data.start != "start")
+data_ht = ht_path
+context_ht = context_ht_path
+coverage_ht = coverage_ht_path
+sex_split = {"female": xx_total, "male": xy_total}
 
-data = data.transmute(ds_ag=float64(data.ds_ag),
-                      ds_al=float64(data.ds_al),
-                      ds_dg=float64(data.ds_dg),
-                      ds_dl=float64(data.ds_dl),
-                      sai_sum=float64(data.sai_sum),
-                      sai_max=float64(data.sai_max),
-                      sai_loss125=float64(data.sai_loss125),
-                      sai_loss150=float64(data.sai_loss150),
-                      sai_1xgb=float64(data.sai_1xgb),
-                      sai_2xgb=float64(data.sai_2xgb),
-                      ssm_1e=float64(data.ssm_1e),
-                      ssm_1amne=float64(data.ssm_1amne),
-                      ssm_1amdi=float64(data.ssm_1amdi),
-                      ssm_1amnsu=float64(data.ssm_1amnsu),
-                      ssm_2e=float64(data.ssm_2e),
-                      ssm_2amne=float64(data.ssm_2amne),
-                      ssm_2amdi=float64(data.ssm_2amdi),
-                      ssm_2amnsu=float64(data.ssm_2amnsu),
-                      start=int32(data.start))
-data.write(f1)
-# Index the variants for which scores are available to match the keys of Hail tables
-data = data.key_by(locus=hl.locus(data.chr, data.start, reference_genome="GRCh38"), alleles=[data.ref, data.alt])
-data = data[gnomad.key]
-data.write(f2)
-gnomad = gnomad.annotate(            
-            ds_ag=data.ds_ag,
-            ds_al=data.ds_al,
-            ds_dg=data.ds_dg,
-            ds_dl=data.ds_dl,
-            sai_sum=data.sai_sum,
-            sai_max=data.sai_max,
-            sai_loss125=data.sai_loss125,
-            sai_loss150=data.sai_loss150,
-            sai_1xgb=data.sai_1xgb,
-            ssm_1e=data.ssm_1e,
-            ssm_1amne=data.ssm_1amne,
-            ssm_1amdi=data.ssm_1amdi,
-            ssm_1amnsu=data.ssm_1amnsu,
-            sai_2xgb=data.sai_2xgb,
-            ssm_2e=data.ssm_2e,
-            ssm_2amne=data.ssm_2amne,
-            ssm_2amdi=data.ssm_2amdi,
-            ssm_2amnsu=data.ssm_2amnsu)
-
-gnomad = gnomad.annotate(AC=gnomad.freq[0].AC)
-#gnomad = gnomad.filter(gnomad.worst_csq!="stop_gained")
-gnomad = gnomad.select(
-            "context",
-            "ref",
-            "alt",
-            "methylation_level",
-            "worst_csq",
-            "protein_coding",
-            "coverage",
-            "AC",
-            "ds_ag",
-            "ds_al",
-            "ds_dg",
-            "ds_dl",
-            "sai_sum",
-            "sai_max",
-            "sai_loss125",
-            "sai_loss150",
-            "sai_1xgb",
-            "ssm_1e",
-            "ssm_1amne",
-            "ssm_1amdi",
-            "ssm_1amnsu",
-            "sai_2xgb",
-            "ssm_2e",
-            "ssm_2amne",
-            "ssm_2amdi",
-            "ssm_2amnsu")#.export(output_file)
-gnomad.write(f3)
-
-gnomad = gnomad.filter(gnomad.all(lambda field: hl.is_defined(gnomad[field]), gnomad.row))
-gnomad.write(f4)
+context = hl.read_table(context_ht)
+coverage_ht = hl.read_table(coverage_ht)
+ht = hl.read_table(data_ht)
+ht = ht.annotate(coverage=coverage_ht[ht.locus].median_approx)
 
 
 
+# Define the column of interest
+column_of_interest = ht.freq[0].AN
 
+# Aggregate to get the 25th and 75th percentiles
+percentiles = ht.aggregate(hl.agg.approx_quantiles(column_of_interest, [0.25, 0.5, 0.80, 0.90]))
 
+# Compute the mode
+mode = ht.aggregate(hl.agg.mode(column_of_interest))
 
+# Extract percentiles
+p10, p25, p75, p90 = percentiles
 
+print(f"Mode: {mode}")
+print(f"25th Percentile: {p25}")
+print(f"50th Percentile: {p50}")
+print(f"80th Percentile: {p80}")
+print(f"90th Percentile: {p90}")
 
+    # Allele number (AN) adjustment. This retains only those variants,
+    # in which the call was made in at least 80% (see "an_cutoff") of
+    # potential carriers.
+#    ht = ht.filter(get_an_adj_criteria(ht, sex_split))
 
+    # Filter the table so that only those variants that have AF>0 and
+    # filter PASS are retained. The first condition is necessary
+    # because in gnomAD variants that were excluded from the analysis
+    # through QC have AF=0.
+#    ht = ht.filter(
+#        (ht.freq[0].AF > 0)
+#        & (ht.filters.length() == 0)
+#        & (ht.vep.variant_class == "SNV")
+#    )
 
+##    ht = filter_vep_to_canonical_transcripts(ht)
+ #   ht = get_worst_consequence_with_non_coding(ht)
 
+#    context = context[ht.key]
+    # The 2020 version of MAPS uses methylation.
+    # Function "prepare_ht" annotates the input table with methylation level,
+    # coverage (optional), CpG/Non-CpG info, context for mutability
+    # (ref allele in the middle plus two bases to the left and to the right)
+    # and other information.
+#    ht = prepare_ht(
+#        ht.annotate(context=context.context, methylation=context.methyl_mean),
+#        trimer=True,
+#        annotate_coverage=False,
+#    )
 
+    #ht = ht.annotate(
+    #    mu=mutation_rates[
+    #        hl.struct(
+    #            context=ht.context,
+    #            ref=ht.ref,
+    #            alt=ht.alt,
+    #            methylation_level=ht.methylation_level,
+    #        )
+    #    ].mu_snp
+    #)
 
-
-
-
-
-### Missense
-gnomad = preprocessing(ht_path, context_ht_path, coverage_ht_path, {"female": xx_total, "male": xy_total})
-
-if create_by_csq_file:
-  gnomad.group_by("context", "ref", "alt", "methylation_level", "worst_csq", "coverage").aggregate(
-    variant_count = hl.agg.count(), singleton_count=hl.agg.count_where(gnomad.freq[0].AC == 1)).export(by_csq_file)
-
-score_types = {'ds_ag': hl.tfloat64, 'ds_al': hl.tfloat64, 'ds_dg': hl.tfloat64, 'ds_dl': hl.tfloat64, 'sai_sum': hl.tfloat64, 'sai_max': hl.tfloat64,
-               'sai_loss125': hl.tfloat64, 'sai_loss150': hl.tfloat64, 'sai_1xgb': hl.tfloat64, 'ssm_1e': hl.tfloat64, 'ssm_1amne': hl.tfloat64, 'ssm_1amdi': hl.tfloat64,
-               'ssm_1amnsu': hl.tfloat64, 'sai_2xgb': hl.tfloat64, 'ssm_2e': hl.tfloat64, 'ssm_2amne': hl.tfloat64,  'ssm_2amdi': hl.tfloat64, 'ssm_2amnsu': hl.tfloat64, 'start': hl.tint32}
-
-data = hl.import_table(input_file, delimiter="\t", missing="")#, types=score_types)
-data = data.filter(data.start != "start")
-
-data = data.transmute(alphamissense=float64(data.alphamissense),
-                      revel=float64(data.revel),
-                      primateai3d=float64(data.primateai3d),
-                      start=int32(data.start))
-data.write(f5)
-# Index the variants for which scores are available to match the keys of Hail tables
-data = data.key_by(locus=hl.locus(data.chr, data.start, reference_genome="GRCh38"), alleles=[data.ref, data.alt])
-data = data[gnomad.key]
-data.write(f6)
-
-gnomad = gnomad.annotate(            
-            revel=data.revel,
-            alphamissense=data.alphamissense,
-            primateai3d=data.primateai3d)
-
-gnomad = gnomad.annotate(AC=gnomad.freq[0].AC)
-gnomad = gnomad.filter(gnomad.worst_csq!="stop_gained")
-gnomad = gnomad.select(
-            "context",
-            "ref",
-            "alt",
-            "methylation_level",
-            "worst_csq",
-            "protein_coding",
-            "coverage",
-            "AC",
-            "revel",
-            "alphamissense",
-            "primateai3d")#.export(output_file)
-gnomad.write(f7)
-
-gnomad = gnomad.filter(gnomad.all(lambda field: hl.is_defined(gnomad[field]), gnomad.row))
-gnomad.write(f8)
+#    return ht
