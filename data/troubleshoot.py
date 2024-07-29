@@ -70,23 +70,24 @@ coverage_ht = hl.read_table(coverage_ht)
 ht = hl.read_table(data_ht)
 ht = ht.annotate(coverage=coverage_ht[ht.locus].median_approx)
 
+#filter out X and Y
+filtered_ht = ht.filter((ht.locus.contig != 'X') & (ht.locus.contig != 'Y'))
 
-
-# Define the column of interest
 column_of_interest = ht.freq[0].AN
+percentiles = ht.aggregate(hl.agg.approx_quantiles(column_of_interest, [0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90]))
+p5, p10, p20, p30, p40, p50, p60, p70, p80, p90 = percentiles
+total_samplesX1point6 = 0.8 * 2 * (xx_total + xy_total)
 
-# Aggregate to get the 25th and 75th percentiles
-percentiles = ht.aggregate(hl.agg.approx_quantiles(column_of_interest, [0.25, 0.5, 0.80, 0.90]))
-
-# Compute the mode
-mode = ht.aggregate(hl.agg.mode(column_of_interest))
-
-# Extract percentiles
-p10, p25, p75, p90 = percentiles
-
-print(f"Mode: {mode}")
-print(f"25th Percentile: {p25}")
+print(f"Dataset: {exome_or_genome}")
+print(f"Total samples X 0.8 X 2: {total_samplesX1point6}")
+print(f"5th Percentile: {p5}")
+print(f"10th Percentile: {p10}")
+print(f"20th Percentile: {p20}")
+print(f"30th Percentile: {p30}")
+print(f"40th Percentile: {p40}")
 print(f"50th Percentile: {p50}")
+print(f"60th Percentile: {p60}")
+print(f"70th Percentile: {p70}")
 print(f"80th Percentile: {p80}")
 print(f"90th Percentile: {p90}")
 
